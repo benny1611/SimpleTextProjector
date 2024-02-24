@@ -1,5 +1,4 @@
 ﻿#include "raylib.h"
-#include "Server.h"
 #include<iostream>
 
 #if defined(_WIN32)           
@@ -9,7 +8,9 @@
 
 #include "Poco/Net/TCPServer.h"
 #include "Poco/Thread.h"
+#include "Poco/Mutex.h"
 #include "Poco/RunnableAdapter.h"
+#include "Server.h"
 
 #if defined(_WIN32)           // raylib uses these names as function parameters
 #undef near
@@ -29,18 +30,19 @@ int currentScreenHeight;
 int currentScreenWidth;
 int currentMonitor = -1;
 
+char* text = (char*)"\xC3\x8E\xC8\x9B\x69\x20\x6D\x75\x6C\xC8\x9B\x75\x6D\x65\x73\x63\x20\x63\xC4\x83\x20\x61\x69\x20\x61\x6C\x65\x73\x20\x72\x61\x79\x6C\x69\x62\x2E\x0A";
+
 int main(void) {
 
+    Mutex textMutex;
+
     // Setting up the TCP Server
-    Server server;
-    server.setPort(8080);
+    Server server = Server(8080, &textMutex, &text);
     RunnableAdapter<Server> serverStart(server, &Server::start);
     // Starting the TCP Server in a new thread
     Thread serverThread;
     serverThread.start(serverStart);
 
-
-    const char* text = "\xC3\x8E\xC8\x9B\x69\x20\x6D\x75\x6C\xC8\x9B\x75\x6D\x65\x73\x63\x20\x63\xC4\x83\x20\x61\x69\x20\x61\x6C\x65\x73\x20\x72\x61\x79\x6C\x69\x62\x2E\x0A";
     int currentMonitor = 0;
     defaultWidth = GetMonitorWidth(currentMonitor);
     defaultHeight = GetMonitorHeight(currentMonitor);
@@ -52,21 +54,12 @@ int main(void) {
 
     toggleFullScreenWindow(0);
     int monitors = GetMonitorCount();
-    std::cout << "Here: " << monitors << std::endl;
 
-    // Get codepoints from text
-    int codepointCount = 0;
-    int* codepoints = LoadCodepoints(text, &codepointCount);
+    RAYLIB_H::Font font = LoadFontEx("fonts/Raleway.ttf", 72, 0, 512);
+    font.baseSize = 72;
 
-    // Removed duplicate codepoints to generate smaller font atlas
-    int codepointsNoDupsCount = 0;
-    int* codepointsNoDups = CodepointRemoveDuplicates(codepoints, codepointCount, &codepointsNoDupsCount);
-    UnloadCodepoints(codepoints);
-
-    RAYLIB_H::Font font = LoadFontEx("fonts/Raleway.ttf", 72, codepointsNoDups, codepointsNoDupsCount);
-
-    while (!WindowShouldClose())
-    {
+    while (!WindowShouldClose()) {
+        textMutex.lock();
         BeginDrawing();
         ClearBackground(BLACK);
         Vector2 vec2;
@@ -76,6 +69,7 @@ int main(void) {
         DrawTextEx(font, text, vec2, 72.0f, 0, LIME);
         
         EndDrawing();
+        textMutex.unlock();
     }
 
     UnloadFont(font);
