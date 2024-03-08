@@ -1,27 +1,23 @@
-﻿#include "raylib.h"
-#include<iostream>
-
-#if defined(_WIN32)           
+﻿#if defined(_WIN32)           
 #define NOGDI             // All GDI defines and routines
 #define NOUSER            // All USER defines and routines
 #endif
 
-#include "Poco/Net/TCPServer.h"
-#include "Poco/Thread.h"
-#include "Poco/Mutex.h"
-#include "Poco/RunnableAdapter.h"
-#include "Server.h"
+#include "TCPServer.h"
+#include "raylib.h"
+#include<iostream>
+#include "tinythread.h"
+
 
 #if defined(_WIN32)           // raylib uses these names as function parameters
 #undef near
 #undef far
 #endif
 
-using Poco::Thread;
-using Poco::RunnableAdapter;
+
+using Mutex = tthread::mutex;
 
 void toggleFullScreenWindow(int monitor);
-static int* CodepointRemoveDuplicates(int* codepoints, int codepointCount, int* codepointResultCount);
 
 int defaultWidth = 800;
 int defaultHeight = 450;
@@ -31,17 +27,15 @@ int currentScreenWidth;
 int currentMonitor = -1;
 
 char* text = (char*)"\xC3\x8E\xC8\x9B\x69\x20\x6D\x75\x6C\xC8\x9B\x75\x6D\x65\x73\x63\x20\x63\xC4\x83\x20\x61\x69\x20\x61\x6C\x65\x73\x20\x72\x61\x79\x6C\x69\x62\x2E\x0A";
+std::string fontPath = "fonts/Raleway.ttf";
 
 int main(void) {
 
     Mutex textMutex;
 
     // Setting up the TCP Server
-    Server server = Server(8080, &textMutex, &text);
-    RunnableAdapter<Server> serverStart(server, &Server::start);
-    // Starting the TCP Server in a new thread
-    Thread serverThread;
-    serverThread.start(serverStart);
+    TCPServer server = TCPServer(8080, &textMutex, &text, &fontPath);
+    server.start();
 
     int currentMonitor = 0;
     defaultWidth = GetMonitorWidth(currentMonitor);
@@ -55,11 +49,18 @@ int main(void) {
     toggleFullScreenWindow(0);
     int monitors = GetMonitorCount();
 
-    RAYLIB_H::Font font = LoadFontEx("fonts/Raleway.ttf", 72, 0, 512);
+    std::string fontPathCopy = fontPath;
+
+    RAYLIB_H::Font font = LoadFontEx(fontPath.c_str(), 128, 0, 512);
     font.baseSize = 72;
 
     while (!WindowShouldClose()) {
         textMutex.lock();
+        if (fontPath != fontPathCopy) {
+            fontPathCopy = fontPath;
+            font = LoadFontEx(fontPath.c_str(), 128, 0, 512);
+            font.baseSize = 72;
+        }
         BeginDrawing();
         ClearBackground(BLACK);
         Vector2 vec2;
@@ -90,34 +91,4 @@ void toggleFullScreenWindow(int monitor) {
         SetWindowSize(currentScreenWidth, currentScreenHeight);
         ToggleFullscreen();
     }
-}
-
-// Remove codepoint duplicates if requested
-// WARNING: This process could be a bit slow if there text to process is very long
-static int* CodepointRemoveDuplicates(int* codepoints, int codepointCount, int* codepointsResultCount)
-{
-    int codepointsNoDupsCount = codepointCount;
-    int* codepointsNoDups = (int*)calloc(codepointCount, sizeof(int));
-    memcpy(codepointsNoDups, codepoints, codepointCount * sizeof(int));
-
-    // Remove duplicates
-    for (int i = 0; i < codepointsNoDupsCount; i++)
-    {
-        for (int j = i + 1; j < codepointsNoDupsCount; j++)
-        {
-            if (codepointsNoDups[i] == codepointsNoDups[j])
-            {
-                for (int k = j; k < codepointsNoDupsCount; k++) codepointsNoDups[k] = codepointsNoDups[k + 1];
-
-                codepointsNoDupsCount--;
-                j--;
-            }
-        }
-    }
-
-    // NOTE: The size of codepointsNoDups is the same as original array but
-    // only required positions are filled (codepointsNoDupsCount)
-
-    *codepointsResultCount = codepointsNoDupsCount;
-    return codepointsNoDups;
 }
