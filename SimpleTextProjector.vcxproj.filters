@@ -41,5 +41,8 @@
     <ClInclude Include="Base64.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SharedVariables.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

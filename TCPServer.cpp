@@ -3,17 +3,12 @@
 #include "tinythread.h"
 #include "Session.h"
 
-using Mutex = tthread::mutex;
 using Thread = tthread::thread;
 using asio::ip::tcp;
 
 void runServer(void* arg);
 
-Mutex* _textMutex;
-char** _text;
-std::string* _fontPath;
 int _port;
-bool keepRunnung = true;
 
 void TCPServer::start() {
     Thread serverThread(runServer, 0);
@@ -21,14 +16,11 @@ void TCPServer::start() {
 }
 
 void TCPServer::stop() {
-    keepRunnung = false;
+    //TODO: Implement
 }
 
-TCPServer::TCPServer(int port, Mutex* mutex, char** text, std::string* fontPath) {
+TCPServer::TCPServer(int port) {
 	_port = port;
-	_textMutex = mutex;
-	_text = text;
-    _fontPath = fontPath;
 }
 
 class Server {
@@ -45,7 +37,7 @@ private:
             [this](std::error_code ec)
             {
                 if (!ec) {
-                    std::make_shared<Session>(std::move(socket_), _textMutex, _text, _fontPath)->start();
+                    std::make_shared<Session>(std::move(socket_))->start();
                 }
 
                 do_accept();

@@ -2,6 +2,7 @@
 #include "nlohmann/json.hpp"
 #include "Base64.h"
 #include "tinythread.h"
+#include "SharedVariables.h"
 #include <memory>
 #include <fstream>
 #include <asio/ts/internet.hpp>
@@ -9,14 +10,13 @@
 
 using asio::ip::tcp;
 using json = nlohmann::json;
-using Mutex = tthread::mutex;
 
 class Session
     : public std::enable_shared_from_this<Session> {
 
 public:
-    Session(tcp::socket socket, Mutex* mutex, char** text, std::string* fontPath)
-        : socket_(std::move(socket)), _textMutex(mutex), _text(text), _fontPath(fontPath) {}
+    Session(tcp::socket socket)
+        : socket_(std::move(socket)){}
 
     void start() {
         do_read();
@@ -55,12 +55,15 @@ private:
         if (command.contains("font")) {
             handleFont(command);
         }
+        if (command.contains("font_size")) {
+            handleFontSize(command);
+        }
     }
 
     void handleText(json& command) {
-        std::string text;
+        std::string base64Text;
         try {
-            text = command["text"].get<std::string>();
+            base64Text = command["text"].get<std::string>();
         }
         catch (std::exception& ex) {
             std::string errorMessage = ex.what();
@@ -68,13 +71,13 @@ private:
             do_write(errorMessage.length());
         }
 
-        _textMutex->lock();
-        char* result = new char[text.size()];
+        textMutex.lock();
+        char* result = new char[base64Text.size()];
         int outLen;
-        macaron::Base64::Decode(text, result, outLen);
+        macaron::Base64::Decode(base64Text, result, outLen);
         result[outLen] = '\0';
-        *_text = result;
-        _textMutex->unlock();
+        text = result;
+        textMutex.unlock();
     }
 
     void handleFont(json& command) {
@@ -98,9 +101,26 @@ private:
         } else {
             file.close();
         }
-        _textMutex->lock();
-        *_fontPath = filePath;
-        _textMutex->unlock();
+        textMutex.lock();
+        fontPath = filePath;
+        textMutex.unlock();
+    }
+
+    void handleFontSize(json& command) {
+        float size;
+        try {
+            size = command["font_size"].get<float>();
+        }
+        catch (std::exception& ex) {
+            std::string errorMessage = ex.what();
+            strncpy_s(data_, errorMessage.c_str(), errorMessage.length());
+            do_write(errorMessage.length());
+            return;
+        }
+        textMutex.lock();
+        fontSize = size;
+        spdlog::info("Changed the font size to: {}", fontSize);
+        textMutex.unlock();
     }
 
     void do_write(std::size_t length) {
@@ -120,7 +140,4 @@ private:
     tcp::socket socket_;
     enum { max_length = 1024 };
     char data_[max_length];
-    Mutex* _textMutex;
-    char** _text;
-    std::string* _fontPath;
 };
