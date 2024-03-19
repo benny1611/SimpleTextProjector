@@ -5,6 +5,7 @@
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPRequestHandlerFactory.h"
 #include "Poco/Task.h"
+#include "CommandRequestHandler.h"
 
 using Poco::Util::OptionSet;
 using Poco::Net::HTTPRequestHandler;
@@ -28,13 +29,7 @@ protected:
 
 class HTTPCommandRequestHandler : public HTTPRequestHandler {
 	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) {
-		Application& app = Application::instance();
-		app.logger().information("Request from: " + request.clientAddress().toString());
-
-		response.setChunkedTransferEncoding(true);
-		response.setContentType("application/json");
-		std::ostream& ostr = response.send();
-		ostr << "{\"success\": true}";
+		handle(request, response);
 	}
 };
 

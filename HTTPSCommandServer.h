@@ -15,6 +15,7 @@
 #include "Poco/Net/HTTPServerParams.h"
 #include "SharedVariables.h"
 #include "Poco/Task.h"
+#include "CommandRequestHandler.h"
 
 using Poco::Net::HTTPRequestHandler;
 using Poco::Net::HTTPServerRequest;
@@ -44,27 +45,10 @@ protected:
 
 class HTTPSCommandRequestHandler : public HTTPRequestHandler {
 public:
-	HTTPSCommandRequestHandler() {
-
-	}
+	HTTPSCommandRequestHandler() {}
 
 	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) {
-		Application& app = Application::instance();
-		app.logger().information("Request from: " + request.clientAddress().toString());
-
-		SecureStreamSocket socket = static_cast<HTTPServerRequestImpl&>(request).socket();
-		if (socket.havePeerCertificate()) {
-			X509Certificate cert = socket.peerCertificate();
-			app.logger().information("Client certificate: " + cert.subjectName());
-		}
-		else {
-			app.logger().information("No client certificate available.");
-		}
-
-		response.setChunkedTransferEncoding(true);
-		response.setContentType("application/json");
-		std::ostream& ostr = response.send();
-		ostr << "{\"success\": true}";
+		handle(request, response);
 	}
 };
 
