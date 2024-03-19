@@ -3,6 +3,7 @@
 #define SHARED_VARIABLES
 #endif // !SHARED_VARIABLES
 #include<iostream>
+#include "tinythread.h"
 
 using Mutex = tthread::mutex;
 

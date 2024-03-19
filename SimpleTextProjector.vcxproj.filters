@@ -18,31 +18,45 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TCPServer.cpp">
+    <ClCompile Include="tinythread.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tinythread.cpp">
+    <ClCompile Include="HTTPSCommandServer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CommandRequestHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CustomErrorHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HTTPCommandServer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="TCPServer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="fast_mutex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="tinythread.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Session.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Base64.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SharedVariables.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="HTTPSCommandServer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CustomErrorHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HTTPCommandServer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="SimpleTextProjector.properties">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

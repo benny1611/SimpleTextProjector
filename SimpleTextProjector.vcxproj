@@ -78,7 +78,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)Libraries\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <LanguageStandard>stdcpp14</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
@@ -97,7 +97,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)Libraries\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp14</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -116,13 +116,13 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)Libraries\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <LanguageStandard>stdcpp14</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcrypto.lib;libssl.lib;PocoCryptod.lib;PocoFoundationd.lib;PocoJSONd.lib;PocoNetd.lib;PocoNetSSLWind.lib;PocoUtild.lib;PocoXMLd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -135,29 +135,35 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)Libraries\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp14</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcrypto.lib;libssl.lib;PocoCrypto.lib;PocoFoundation.lib;PocoJSON.lib;PocoNet.lib;PocoNetSSLWin.lib;PocoUtil.lib;PocoXML.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CommandRequestHandler.cpp" />
+    <ClCompile Include="CustomErrorHandler.cpp" />
+    <ClCompile Include="HTTPCommandServer.cpp" />
+    <ClCompile Include="HTTPSCommandServer.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="TCPServer.cpp" />
     <ClCompile Include="tinythread.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Base64.h" />
+    <ClInclude Include="CustomErrorHandler.h" />
     <ClInclude Include="fast_mutex.h" />
-    <ClInclude Include="Session.h" />
+    <ClInclude Include="HTTPCommandServer.h" />
+    <ClInclude Include="HTTPSCommandServer.h" />
     <ClInclude Include="SharedVariables.h" />
-    <ClInclude Include="TCPServer.h" />
     <ClInclude Include="tinythread.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="SimpleTextProjector.properties" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
