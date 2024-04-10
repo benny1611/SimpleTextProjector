@@ -1,9 +1,7 @@
 #pragma once
 
-#include "Poco/Util/ServerApplication.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Net/HTTPRequestHandler.h"
-#include "Poco/Net/HTTPServerRequestImpl.h"
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Util/ServerApplication.h"
 #include "Poco/Net/SecureStreamSocket.h"
@@ -15,7 +13,7 @@
 #include "Poco/Net/HTTPServerParams.h"
 #include "SharedVariables.h"
 #include "Poco/Task.h"
-#include "CommandRequestHandler.h"
+#include "WebSocketHandler.h"
 
 using Poco::Net::HTTPRequestHandler;
 using Poco::Net::HTTPServerRequest;
@@ -34,12 +32,15 @@ class HTTPSCommandServer : public Poco::Util::ServerApplication {
 public:
 	HTTPSCommandServer();
 	~HTTPSCommandServer();
+	void stop();
 protected:
 	void initialize(Application& self);
 	void uninitialize();
 	void defineOptions(OptionSet& options);
 	void handleOption(const std::string& name, const std::string& value);
 	int main(const std::vector<std::string>& args);
+private:
+	HTTPServer* srv;
 };
 
 
@@ -48,7 +49,7 @@ public:
 	HTTPSCommandRequestHandler() {}
 
 	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) {
-		handle(request, response);
+		handleAuth(request, response);
 	}
 };
 
@@ -57,12 +58,13 @@ public:
 	HTTPSCommandRequestHandlerFactory() {
 	}
 	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) {
-		if (request.getURI() == "/") {
+		
+		if (request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0) {
+			return new WebSocketRequestHandler();
+		} else {
 			return new HTTPSCommandRequestHandler();
 		}
-		else {
-			return 0;
-		}
+		//if (request.getURI() == "/") {
 	}
 };
 

@@ -148,20 +148,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CommandRequestHandler.cpp" />
-    <ClCompile Include="CustomErrorHandler.cpp" />
     <ClCompile Include="HTTPCommandServer.cpp" />
     <ClCompile Include="HTTPSCommandServer.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="tinythread.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Base64.h" />
     <ClInclude Include="CommandRequestHandler.h" />
     <ClInclude Include="CustomErrorHandler.h" />
-    <ClInclude Include="fast_mutex.h" />
     <ClInclude Include="HTTPCommandServer.h" />
     <ClInclude Include="HTTPSCommandServer.h" />
+    <ClInclude Include="WebSocketHandler.h" />
     <ClInclude Include="SharedVariables.h" />
-    <ClInclude Include="tinythread.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SimpleTextProjector.properties" />

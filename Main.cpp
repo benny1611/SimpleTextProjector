@@ -4,7 +4,6 @@
 #endif
 
 #include "raylib.h"
-#include "tinythread.h"
 #include "SharedVariables.h"
 #include "HTTPSCommandServer.h"
 #include "HTTPCommandServer.h"
@@ -42,7 +41,9 @@ int currentScreenHeight;
 int currentScreenWidth;
 int currentMonitor = -1;
 
+std::set<WebSocket> clients;
 Mutex textMutex;
+Mutex clientSetMutex;
 
 char* text = (char*)"\xC3\x8E\xC8\x9B\x69\x20\x6D\x75\x6C\xC8\x9B\x75\x6D\x65\x73\x63\x20\x63\xC4\x83\x20\x61\x69\x20\x61\x6C\x65\x73\x20\x72\x61\x79\x6C\x69\x62\x2E\x0A";
 std::string fontPath = "fonts/Raleway.ttf";
@@ -72,17 +73,18 @@ int main(int argc, char** argv) {
         exit(1);
     }
     
-
+    HTTPCommandServer* HTTPServer = NULL;
+    HTTPSCommandServer* HTTPSServer = NULL;
     // Setting up the HTTP/S Server
     if (useHTTP) {
         // start HTTP Server
-        HTTPCommandServer* HTTPServer = new HTTPCommandServer();
+        HTTPServer = new HTTPCommandServer();
         HTTPServerTask* httpTask = new HTTPServerTask(HTTPServer, argc, argv);
         tm.start(httpTask);
     }
     else {
         // start HTTPS Server
-        HTTPSCommandServer* HTTPSServer = new HTTPSCommandServer();
+        HTTPSServer = new HTTPSCommandServer();
         HTTPSServerTask* httpsTask = new HTTPSServerTask(HTTPSServer, argc, argv);
         tm.start(httpsTask);
     }
@@ -129,7 +131,12 @@ int main(int argc, char** argv) {
 
     RAYLIB_H::CloseWindow();
 
-    //server.stop();
+    if (useHTTP) {
+        HTTPServer->stop();
+    }
+    else {
+        HTTPSServer->stop();
+    }
 
     return 0;
 }

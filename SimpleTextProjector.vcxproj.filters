@@ -18,13 +18,7 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tinythread.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="HTTPSCommandServer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CustomErrorHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="HTTPCommandServer.cpp">
@@ -35,12 +29,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fast_mutex.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="tinythread.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SharedVariables.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -54,6 +42,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CommandRequestHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WebSocketHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Base64.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

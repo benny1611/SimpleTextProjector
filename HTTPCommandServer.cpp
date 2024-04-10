@@ -37,13 +37,15 @@ int HTTPCommandServer::main(const std::vector<std::string>& args) {
 	// set-up a server socket
 	ServerSocket svs(port);
 	// set-up a HTTPServer instance
-	HTTPServer srv(new HTTPCommandRequestHandlerFactory(), svs, new HTTPServerParams);
+	srv = new HTTPServer(new HTTPCommandRequestHandlerFactory(), svs, new HTTPServerParams);
 	// start the HTTPServer
-	srv.start();
+	srv->start();
 	// wait for CTRL-C or kill
 	waitForTerminationRequest();
-	// Stop the HTTPServer
-	srv.stop();
 
 	return Application::EXIT_OK;
+}
+
+void HTTPCommandServer::stop() {
+	srv->stop();
 }

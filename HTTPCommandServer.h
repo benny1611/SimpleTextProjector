@@ -3,33 +3,39 @@
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
+#include "Poco/Net/HTTPServer.h"
 #include "Poco/Net/HTTPRequestHandlerFactory.h"
 #include "Poco/Task.h"
-#include "CommandRequestHandler.h"
+#include "WebSocketHandler.h"
 
 using Poco::Util::OptionSet;
 using Poco::Net::HTTPRequestHandler;
 using Poco::Net::HTTPServerRequest;
 using Poco::Net::HTTPServerResponse;
+using Poco::Net::HTTPServer;
 using Poco::Util::Application;
 using Poco::Net::HTTPRequestHandlerFactory;
+using Poco::Net::HTTPResponse;
 
 
 class HTTPCommandServer : public Poco::Util::ServerApplication {
 public:
 	HTTPCommandServer();
 	~HTTPCommandServer();
+	void stop();
 protected:
 	void initialize(Application& self);
 	void uninitialize();
 	void defineOptions(OptionSet& options);
 	void handleOption(const std::string& name, const std::string& value);
 	int main(const std::vector<std::string>& args);
+private:
+	HTTPServer* srv;
 };
 
 class HTTPCommandRequestHandler : public HTTPRequestHandler {
 	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) {
-		handle(request, response);
+		handleAuth(request, response);
 	}
 };
 
@@ -38,11 +44,11 @@ public:
 	HTTPCommandRequestHandlerFactory() {
 	}
 	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) {
-		if (request.getURI() == "/") {
-			return new HTTPCommandRequestHandler();
+		if (request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0) {
+			return new WebSocketRequestHandler();
 		}
 		else {
-			return 0;
+			return new HTTPCommandRequestHandler();
 		}
 	}
 };

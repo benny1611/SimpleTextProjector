@@ -1,7 +1,5 @@
 #include "HTTPSCommandServer.h"
 
-using Thread = tthread::thread;
-
 void runServer(void* arg);
 
 HTTPSCommandServer::HTTPSCommandServer() {
@@ -39,12 +37,15 @@ int HTTPSCommandServer::main(const std::vector<std::string>& args) {
 	// set-up a server socket
 	SecureServerSocket svs(port);
 	// set-up a HTTPServer instance
-	HTTPServer srv(new HTTPSCommandRequestHandlerFactory(), svs, new HTTPServerParams);
+	srv = new HTTPServer(new HTTPSCommandRequestHandlerFactory(), svs, new HTTPServerParams);
 	// start the HTTPServer
-	srv.start();
+	srv->start();
 	// wait for CTRL-C or kill
 	waitForTerminationRequest();
-	// Stop the HTTPServer
-	srv.stop();
+
 	return Application::EXIT_OK;
+}
+
+void HTTPSCommandServer::stop() {
+	srv->stop();
 }
