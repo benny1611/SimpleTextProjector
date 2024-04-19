@@ -112,14 +112,12 @@ std::string handleFont(std::string& fontPathValue, Application& app) {
 
 	std::string fontFullPath = "fonts/" + fontPathValue;
 
-	
-
 	std::string result = "";
 
 	textMutex.lock();
 	if (fontFullPath == fontPath) {
 		textMutex.unlock();
-		return;
+		return result;
 	}
 	try {
 		std::ifstream file(fontFullPath);
