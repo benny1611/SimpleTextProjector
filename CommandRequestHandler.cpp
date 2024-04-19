@@ -6,10 +6,9 @@
 #include "Poco/JSON/Object.h"
 #include "Poco/Dynamic/Var.h"
 #include "Poco/Exception.h"
-#include "Poco/Base64Decoder.h"
-#include "Poco/StreamCopier.h"
 #include "SharedVariables.h"
 #include "Base64.h"
+#include <fstream>
 
 using Poco::Util::Application;
 using Poco::Net::HTTPServerRequest;
@@ -18,10 +17,10 @@ using Poco::JSON::Parser;
 using Poco::JSON::Object;
 using Poco::Dynamic::Var;
 using Poco::Exception;
-using Poco::Base64Decoder;
-using Poco::StreamCopier;
 
 void handleText(std::string& textValue, Application& app);
+std::string handleFont(std::string& fontPathValue, Application& app);
+int handleFontSize(float fontSizeValue, Application& app);
 
 void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
 	Application& app = Application::instance();
@@ -75,10 +74,27 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 		std::string textValue = pObject->getValue<std::string>("text");
 		handleText(textValue, app);
 	}
+	if (pObject->has("font")) {
+		std::string fontPathValue = pObject->getValue<std::string>("font");
+		std::string error = handleFont(fontPathValue, app);
+		if (!error.empty()) {
+			ws.sendFrame(error.c_str(), error.length());
+		}
+	}
+	if (pObject->has("font_size")) {
+		float fontSizeValue = pObject->getValue<float>("font_size");
+		bool success = handleFontSize(fontSizeValue, app);
+		if (!success) {
+			std::string error = "Error: could not set font size to: ";
+			error = error + std::to_string(fontSizeValue);
+			ws.sendFrame(error.c_str(), error.length());
+		}
+	}
 }
 
 void handleText(std::string& textValue, Application& app) {
-	app.logger().information("Here's your encoded text: " + textValue);
+	app.logger().debug("Here's your encoded text: " + textValue);
+	
 	textMutex.lock();
 	char* result = new char[textValue.size()];
 	int outLen;
@@ -86,7 +102,47 @@ void handleText(std::string& textValue, Application& app) {
 	result[outLen] = '\0';
 	text = result;
 	textMutex.unlock();
-
+	
 	std::string outputLogString(result);
-	app.logger().information("Here's your decoded text: " + outputLogString);
+	app.logger().debug("Here's your decoded text: " + outputLogString);
+}
+
+std::string handleFont(std::string& fontPathValue, Application& app) {
+	app.logger().debug("Here is the font: " + fontPathValue);
+
+	std::string fontFullPath = "fonts/" + fontPathValue;
+
+	
+
+	std::string result = "";
+
+	textMutex.lock();
+	if (fontFullPath == fontPath) {
+		textMutex.unlock();
+		return;
+	}
+	try {
+		std::ifstream file(fontFullPath);
+		if (file.is_open()) {
+			file.close();
+			fontPath = fontFullPath;
+		} else {
+			result = "Error: File: \"" + fontFullPath + "\" not found";
+		}
+	} catch (Exception e) {
+		result = e.message();
+	}
+	textMutex.unlock();
+	return result;
+}
+
+int handleFontSize(float fontSizeValue, Application& app) {
+	if (fontSizeValue > 0) {
+		textMutex.lock();
+		fontSize = fontSizeValue;
+		textMutex.unlock();
+		return 1;
+	} else {
+		return 0;
+	}
 }
