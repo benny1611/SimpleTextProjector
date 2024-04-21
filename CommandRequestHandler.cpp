@@ -21,6 +21,7 @@ using Poco::Exception;
 void handleText(std::string& textValue, Application& app);
 std::string handleFont(std::string& fontPathValue, Application& app);
 int handleFontSize(float fontSizeValue, Application& app);
+std::string handleTextColor(Var& colorString, Application& app);
 
 void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
 	Application& app = Application::instance();
@@ -74,6 +75,14 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 		std::string textValue = pObject->getValue<std::string>("text");
 		handleText(textValue, app);
 	}
+	if (pObject->has("text_color")) {
+		//Object::Ptr color = pObject->getValue<Object::Ptr>("text_color");
+		Var color = pObject->get("text_color");
+		std::string error = handleTextColor(color, app);
+		if (!error.empty()) {
+			ws.sendFrame(error.c_str(), error.length());
+		}
+	}
 	if (pObject->has("font")) {
 		std::string fontPathValue = pObject->getValue<std::string>("font");
 		std::string error = handleFont(fontPathValue, app);
@@ -96,6 +105,11 @@ void handleText(std::string& textValue, Application& app) {
 	app.logger().debug("Here's your encoded text: " + textValue);
 	
 	textMutex.lock();
+	int comparison = strncmp(textValue.c_str(), text, textValue.length());
+	if (comparison == 0) { // text is equal
+		textMutex.unlock();
+		return;
+	}
 	char* result = new char[textValue.size()];
 	int outLen;
 	macaron::Base64::Decode(textValue, result, outLen);
@@ -105,11 +119,46 @@ void handleText(std::string& textValue, Application& app) {
 	textMutex.unlock();
 	
 	std::string outputLogString(result);
-	app.logger().debug("Here's your decoded text: " + outputLogString);
+	app.logger().debug("Here's your decoded text: {}", outputLogString);
+}
+
+std::string handleTextColor(Var& colorString, Application& app) {
+	app.logger().information("Here is the color: {}", colorString);
+	std::string error = "";
+	std::string errorMessage = "Error: the color must be a JSON object in the form: \"font_color\": {\"R\": <value>, \"G\": <value>, \"B\": <value>, \"A\": <value>}, all values are unsigned chars";
+	if (!colorString->has("R") || !colorString->has("G") || !colorString->has("B")) {
+		error = errorMessage;
+	}
+	if (!error.empty()) {
+		return error;
+	}
+	int R;
+	int G;
+	int B;
+	int A;
+	try {
+		R = colorString->getValue<int>("R");
+		G = colorString->getValue<int>("G");
+		B = colorString->getValue<int>("B");
+		A = colorString->getValue<int>("B");
+	} catch (Exception e) {
+		error = errorMessage;
+	}
+	if (!error.empty()) {
+		return error;
+	}
+	
+	textMutex.lock();
+	textColorR = R;
+	textColorG = G;
+	textColorB = B;
+	textColorA = A;
+	textMutex.unlock();
+	return error;
 }
 
 std::string handleFont(std::string& fontPathValue, Application& app) {
-	app.logger().debug("Here is the font: " + fontPathValue);
+	app.logger().debug("Here is the font: {}", fontPathValue);
 
 	std::string fontFullPath = "fonts/" + fontPathValue;
 

@@ -46,6 +46,11 @@ Mutex textMutex;
 Mutex clientSetMutex;
 
 char* text = new char[100];
+
+unsigned char textColorR = 0xFF;
+unsigned char textColorG = 0xFF;
+unsigned char textColorB = 0xFF;
+unsigned char textColorA = 0xFF;
 std::string fontPath = "fonts/Raleway.ttf";
 float fontSize = 72.0f;
 float baseSize = fontSize;
@@ -141,7 +146,12 @@ int main(int argc, char** argv) {
         rec.y = 0;
         rec.width = screenWidth;
         rec.height = screenHeight;
-        DrawTextCenteredInARectangle(font, rec, 0, fontSize, true, LIME);
+        Color textColor;
+        textColor.r = textColorR;
+        textColor.g = textColorG;
+        textColor.b = textColorB;
+        textColor.a = textColorA;
+        DrawTextCenteredInARectangle(font, rec, 0, fontSize, true, textColor);
         //DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, WHITE);
         //DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, WHITE);
         
