@@ -141,10 +141,9 @@ int main(int argc, char** argv) {
         rec.y = 0;
         rec.width = screenWidth;
         rec.height = screenHeight;
-        //DrawTextBoxedSelectable(font, text, rec, fontSize, 0, true, LIME, 0, 0, BLACK, BLACK);
         DrawTextCenteredInARectangle(font, rec, 0, fontSize, true, LIME);
-        DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, WHITE);
-        DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, WHITE);
+        //DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, WHITE);
+        //DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, WHITE);
         
         EndDrawing();
         textMutex.unlock();
@@ -188,7 +187,6 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
     bool doneAdjustingTextHeight = false;
     bool doneDrawing = false;
 
-    float textHeight = -1;
     std::list<int> newLineIndexList;
     std::list<float> linesWidthList;
 
@@ -273,14 +271,18 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
         }
 
         if (doneAdjustingTextWidth && !doneAdjustingTextHeight) {
+            int nonZeroLines = 0;
             for (int i = 0; i < length; i++) {
                 int codepointByteCount = 0;
                 int codepoint = GetCodepoint(&resultText[i], &codepointByteCount);
                 if (codepoint == '\n') {
                     newLineIndexList.push_back(i);
                 }
+                if (codepoint == '\n' && i != length - 1) {
+                    nonZeroLines++;
+                }
             }
-            float initialTextHeight = (font.baseSize + (font.baseSize/2)) * newLineIndexList.size();
+            float initialTextHeight = font.baseSize * nonZeroLines * scaleFactor + ((font.baseSize / 2) * (nonZeroLines - 1) * scaleFactor);
             if (initialTextHeight > rec.height) {
                 desiredFontSize -= 5;
                 if (desiredFontSize <= 0) {
@@ -298,7 +300,6 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
                 linesWidthList.clear();
             } else {
                 doneAdjustingTextHeight = true;
-                textHeight = initialTextHeight;
             }
         }
 
@@ -311,8 +312,9 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
                     numberOfLinesThatCanBeDraw++;
                 }
             }
-            float offsetY = ((float)(font.baseSize * (numberOfLinesThatCanBeDraw - 1)))/2.0f;
+            float offsetY = ((float)(font.baseSize * (numberOfLinesThatCanBeDraw - 1) * scaleFactor))/2.0f;
             std::list<int>::iterator it = newLineIndexList.begin();
+
             while (positionIndex <= newLineIndexList.size()) {
 
                 int startPosition;
@@ -373,7 +375,7 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
                     }
                     i += (codepointByteCount - 1);
                 }
-                offsetY -= font.baseSize;
+                offsetY -= font.baseSize * scaleFactor;
                 positionIndex++;
                 if (it != newLineIndexList.end()) {
                     std::advance(it, 1);
