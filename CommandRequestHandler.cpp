@@ -122,25 +122,25 @@ void handleText(std::string& textValue, Application& app) {
 	app.logger().debug("Here's your decoded text: {}", outputLogString);
 }
 
-std::string handleTextColor(Var& colorString, Application& app) {
-	app.logger().information("Here is the color: {}", colorString);
+std::string handleTextColor(Var& colorVar, Application& app) {
 	std::string error = "";
 	std::string errorMessage = "Error: the color must be a JSON object in the form: \"font_color\": {\"R\": <value>, \"G\": <value>, \"B\": <value>, \"A\": <value>}, all values are unsigned chars";
-	if (!colorString->has("R") || !colorString->has("G") || !colorString->has("B")) {
+	Object::Ptr colorObj = colorVar.extract<Object::Ptr>();
+	if (!colorObj->has("R") || !colorObj->has("G") || !colorObj->has("B")) {
 		error = errorMessage;
 	}
 	if (!error.empty()) {
 		return error;
 	}
-	int R;
-	int G;
-	int B;
-	int A;
+	unsigned char R;
+	unsigned char G;
+	unsigned char B;
+	unsigned char A;
 	try {
-		R = colorString->getValue<int>("R");
-		G = colorString->getValue<int>("G");
-		B = colorString->getValue<int>("B");
-		A = colorString->getValue<int>("B");
+		R = colorObj->getValue<unsigned char>("R");
+		G = colorObj->getValue<unsigned char>("G");
+		B = colorObj->getValue<unsigned char>("B");
+		A = colorObj->getValue<unsigned char>("A");
 	} catch (Exception e) {
 		error = errorMessage;
 	}
@@ -154,6 +154,7 @@ std::string handleTextColor(Var& colorString, Application& app) {
 	textColorB = B;
 	textColorA = A;
 	textMutex.unlock();
+	app.logger().information("Here's your color: R: " + std::to_string(R) + ", G:" + std::to_string(G) + ", B: " + std::to_string(B) + ", A:" + std::to_string(A));
 	return error;
 }
 

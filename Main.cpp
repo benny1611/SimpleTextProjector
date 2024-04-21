@@ -55,7 +55,6 @@ std::string fontPath = "fonts/Raleway.ttf";
 float fontSize = 72.0f;
 float baseSize = fontSize;
 
-static void DrawTextBoxedSelectable(Font font, const char* text, Rectangle rec, float fontSize, float spacing, bool wordWrap, Color tint, int selectStart, int selectLength, Color selectTint, Color selectBackTint);    // Draw text using font inside rectangle limits with support for text selection
 static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing, float desiredFontSize, bool wordWrap, Color textColor);
 
 int main(int argc, char** argv) {
