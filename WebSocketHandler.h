@@ -42,7 +42,7 @@ public:
 			ws = new WebSocket(request, response);
 			app.logger().information("WebSocket connection established.");
 
-			char buffer[1024];
+			char buffer[2048];
 			int flags;
 			int n;
 			clientSetMutex.lock();

@@ -100,6 +100,7 @@ void handleText(std::string& textValue, Application& app) {
 	int outLen;
 	macaron::Base64::Decode(textValue, result, outLen);
 	result[outLen] = '\0';
+	delete[] text;
 	text = result;
 	textMutex.unlock();
 	
