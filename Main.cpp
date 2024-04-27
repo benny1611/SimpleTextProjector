@@ -139,7 +139,6 @@ int main(int argc, char** argv) {
         center.x = (screenWidth / 2);
         center.y = (screenHeight / 2);
         
-        //DrawTextEx(font, text, vec2, fontSize, 0, LIME);
         Rectangle rec;
         rec.x = 0;
         rec.y = 0;
@@ -151,8 +150,6 @@ int main(int argc, char** argv) {
         textColor.b = textColorB;
         textColor.a = textColorA;
         DrawTextCenteredInARectangle(font, rec, 0, fontSize, true, textColor);
-        //DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, WHITE);
-        //DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, WHITE);
         
         EndDrawing();
         textMutex.unlock();
@@ -190,7 +187,6 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
     // copy text in a separate variable
     char* resultText = new char[length];
     memcpy_s(resultText, length, text, length);
-    //strncpy_s(resultText, length, text, length);
 
     bool doneAdjustingTextWidth = false;
     bool doneAdjustingTextHeight = false;
@@ -200,6 +196,8 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
     std::list<float> linesWidthList;
 
     while (!doneAdjustingTextWidth || !doneAdjustingTextHeight || !doneDrawing) {
+
+        // adjust text width to fit to the rectangle
         if (!doneAdjustingTextWidth) {
             float sentenceWidth = 0.0f;
             int lastSpaceChIdx = -1;
@@ -219,12 +217,7 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
 
                 float glyphWidth = 0;
                 if (codepoint != '\n') {
-                    if (font.glyphs[index].advanceX == 0) {
-                        glyphWidth = font.recs[index].width * scaleFactor;
-                    }
-                    else {
-                        glyphWidth = font.glyphs[index].advanceX * scaleFactor;
-                    }
+                    glyphWidth = font.glyphs[index].advanceX * scaleFactor;
 
                     if (i + 1 < length) {
                         glyphWidth = glyphWidth + spacing;
@@ -278,7 +271,8 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
                 }
             }
         }
-
+        // adjust text height to fit to the rectangle
+        float textHeight;
         if (doneAdjustingTextWidth && !doneAdjustingTextHeight) {
             int nonZeroLines = 0;
             for (int i = 0; i < length; i++) {
@@ -291,8 +285,8 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
                     nonZeroLines++;
                 }
             }
-            float initialTextHeight = font.baseSize * nonZeroLines * scaleFactor + ((font.baseSize / 2) * (nonZeroLines - 1) * scaleFactor);
-            if (initialTextHeight > rec.height) {
+            textHeight = font.baseSize * nonZeroLines * scaleFactor + ((font.baseSize / 2) * (nonZeroLines - 1) * scaleFactor);
+            if (textHeight > rec.height) { // height too big, make font size smaller, then redo width fitting
                 desiredFontSize -= 5;
                 if (desiredFontSize <= 0) {
                     // cannot fit text to rectangle
@@ -312,82 +306,52 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
             }
         }
 
+        // draw, now fitted, text into the rectangle
         if (doneAdjustingTextWidth && doneAdjustingTextHeight) {
-            int lineWidthIndex = 0;
-            int positionIndex = 0;
-            int numberOfLinesThatCanBeDraw = 0;
-            for (std::list<float>::iterator it = linesWidthList.begin(); it != linesWidthList.end(); ++it) {
-                if (*it != 0) {
-                    numberOfLinesThatCanBeDraw++;
+            std::list<float>::iterator lineWidthIterator = linesWidthList.begin();
+            std::list<int>::iterator newLineIterator = newLineIndexList.begin();
+
+            float offsetY = textHeight / 2.0f;
+            float offsetX = 0.0f;
+
+            float lineWidth = *lineWidthIterator;
+            int endLineIndex = *newLineIterator;
+
+            for (int i = 0; i < length; i++) {
+                int codepointByteCount = 0;
+                int codepoint = GetCodepoint(&resultText[i], &codepointByteCount);
+                if ((codepoint != ' ') && (codepoint != '\t') && codepoint != '\n') {
+                    Vector2 vec2;
+                    vec2.x = rec.x + offsetX + (rec.width / 2) - (lineWidth / 2);
+                    vec2.y = rec.y - offsetY + (rec.height / 2) - (font.baseSize / 2);
+                    DrawTextCodepoint(font, codepoint, vec2, desiredFontSize, textColor);
                 }
-            }
-            float offsetY = ((float)(font.baseSize * (numberOfLinesThatCanBeDraw - 1) * scaleFactor))/2.0f;
-            std::list<int>::iterator it = newLineIndexList.begin();
+                float glyphWidth = 0;
+                int index = GetGlyphIndex(font, codepoint);
+                if (codepoint != '\n') {
+                    glyphWidth = font.glyphs[index].advanceX * scaleFactor;
 
-            while (positionIndex <= newLineIndexList.size()) {
-
-                int startPosition;
-                int endPosition;
-                if (it == newLineIndexList.begin()) {
-                    startPosition = 0;
-                    endPosition = *it;
-                } else if(it == newLineIndexList.end()) {
-                    startPosition = *newLineIndexList.rbegin();
-                    endPosition = length;
-                } else {
-                    std::list<int>::iterator it2 = newLineIndexList.begin();
-                    std::advance(it2, positionIndex - 1);
-                    startPosition = *it2;
-                    if (it == newLineIndexList.end()) {
-                        endPosition = *newLineIndexList.rbegin();
-                    } else {
-                        endPosition = *it;
+                    if (i + 1 < length) {
+                        glyphWidth = glyphWidth + spacing;
                     }
                 }
-                
-                std::list<float>::iterator lineWidthIt = linesWidthList.begin();
-                std::advance(lineWidthIt, lineWidthIndex);
-                lineWidthIndex++;
-
-                float sentenceWidth = *lineWidthIt;
-                float offsetX = 0.0f;
-                if (sentenceWidth == 0) {
-                    positionIndex++;
-                    continue;
+                offsetX += glyphWidth;
+                if (codepoint == 0x3f) {
+                    codepointByteCount = 1;
                 }
+                i += (codepointByteCount - 1);
 
-                for (int i = startPosition; i < endPosition; i++) {
-                    int codepointByteCount = 0;
-                    int codepoint = GetCodepoint(&resultText[i], &codepointByteCount);
-                    if ((codepoint != ' ') && (codepoint != '\t') && codepoint != '\n') {
-                        Vector2 vec2;
-                        vec2.x = rec.x + offsetX + (rec.width / 2) - (sentenceWidth / 2);
-                        vec2.y = rec.y - offsetY + (rec.height / 2) - (font.baseSize/2);
-                        DrawTextCodepoint(font, codepoint, vec2, desiredFontSize, textColor);
+                if (endLineIndex == i) {
+                    offsetY -= ((font.baseSize * scaleFactor) + ((font.baseSize / 2) * scaleFactor));
+                    offsetX = 0.0f;
+                    std::advance(lineWidthIterator, 1);
+                    std::advance(newLineIterator, 1);
+                    if (lineWidthIterator != linesWidthList.end()) {
+                        lineWidth = *lineWidthIterator;
                     }
-                    float glyphWidth = 0;
-                    int index = GetGlyphIndex(font, codepoint);
-                    if (codepoint != '\n') {
-                        if (font.glyphs[i].advanceX == 0) {
-                            glyphWidth = font.recs[index].width * scaleFactor;
-                        } else {
-                            glyphWidth = font.glyphs[index].advanceX * scaleFactor;
-                        }
-
-                        if (i + 1 < length) {
-                            glyphWidth = glyphWidth + spacing;
-                        }
-                    }
-                    offsetX += glyphWidth;
-                    if (codepoint == 0x3f) {
-                        codepointByteCount = 1;
-                    }
-                    i += (codepointByteCount - 1);
-                }
-                offsetY -= font.baseSize * scaleFactor;
-                positionIndex++;
-                if (it != newLineIndexList.end()) {
-                    std::advance(it, 1);
+                    if (newLineIterator != newLineIndexList.end()) {
+                        endLineIndex = *newLineIterator;
+                    } 
                 }
             }
 
