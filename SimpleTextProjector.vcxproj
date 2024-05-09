@@ -122,7 +122,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libcrypto.lib;libssl.lib;PocoCryptod.lib;PocoFoundationd.lib;PocoJSONd.lib;PocoNetd.lib;PocoNetSSLWind.lib;PocoUtild.lib;PocoXMLd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcrypto.lib;libssl.lib;avcodec.lib;avformat.lib;avutil.lib;avdevice.lib;swscale.lib;PocoCryptod.lib;PocoFoundationd.lib;PocoJSONd.lib;PocoNetd.lib;PocoNetSSLWind.lib;PocoUtild.lib;PocoXMLd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -142,7 +142,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libcrypto.lib;libssl.lib;PocoCrypto.lib;PocoFoundation.lib;PocoJSON.lib;PocoNet.lib;PocoNetSSLWin.lib;PocoUtil.lib;PocoXML.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcrypto.lib;libssl.lib;avcodec.lib;avformat.lib;avutil.lib;avdevice.lib;swscale.lib;PocoCrypto.lib;PocoFoundation.lib;PocoJSON.lib;PocoNet.lib;PocoNetSSLWin.lib;PocoUtil.lib;PocoXML.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -151,6 +151,7 @@
     <ClCompile Include="HTTPCommandServer.cpp" />
     <ClCompile Include="HTTPSCommandServer.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="ScreenStreamer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base64.h" />
@@ -158,6 +159,7 @@
     <ClInclude Include="CustomErrorHandler.h" />
     <ClInclude Include="HTTPCommandServer.h" />
     <ClInclude Include="HTTPSCommandServer.h" />
+    <ClInclude Include="ScreenStreamer.h" />
     <ClInclude Include="WebSocketHandler.h" />
     <ClInclude Include="SharedVariables.h" />
   </ItemGroup>

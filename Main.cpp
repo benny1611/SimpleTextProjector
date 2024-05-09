@@ -17,6 +17,12 @@
 #include "CustomErrorHandler.h"
 #include "Poco/Message.h"
 #include "Poco/TaskManager.h"
+#include "ScreenStreamer.h"
+
+extern "C" {
+    #include <libavformat/avformat.h>
+    #include <libavcodec/avcodec.h>
+}
 
 #if defined(_WIN32)           // raylib uses these names as function parameters
 #undef near
@@ -58,6 +64,11 @@ float baseSize = fontSize;
 static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing, float desiredFontSize, bool wordWrap, Color textColor);
 
 int main(int argc, char** argv) {
+    ScreenStreamer* screenStreamer = new ScreenStreamer();
+    int ret = screenStreamer->startSteaming();
+    if (ret < 0) {
+        exit(1);
+    }
     char* initialText = (char*)"\xC3\x8E\xC8\x9B\x69\x20\x6D\x75\x6C\xC8\x9B\x75\x6D\x65\x73\x63\x20\x63\xC4\x83\x20\x61\x69\x20\x61\x6C\x65\x73\x20\x72\x61\x79\x6C\x69\x62\x2E\x0A";
     int initTextLength = strlen(initialText);
     memcpy_s(text, initTextLength, initialText, initTextLength);
