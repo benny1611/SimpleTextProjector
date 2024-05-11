@@ -18,7 +18,11 @@ bool ScreenStreamer::isStreaming() {
 }
 
 int ScreenStreamer::startSteaming() {
-	// Grab the screen -----------------------------------------------------------------------------
+
+	//#####################
+	//## Grab the screen ##
+	//#####################
+
 	int ret;
 	AVInputFormat* in_InputFormat = (AVInputFormat*)av_find_input_format("gdigrab");
 	AVDictionary* in_InputFormatOptions = NULL;
@@ -28,12 +32,12 @@ int ScreenStreamer::startSteaming() {
 
 	in_InputFormatContext = avformat_alloc_context();
 
-	ret = av_dict_set(&in_InputFormatOptions, "framerate", "80", 0);
+	ret = av_dict_set(&in_InputFormatOptions, "framerate", "30", 0);
 	ret = av_dict_set(&in_InputFormatOptions, "offset_x", "0", 0);
 	ret = av_dict_set(&in_InputFormatOptions, "offset_y", "0", 0);
 	ret = av_dict_set(&in_InputFormatOptions, "video_size", "1920x1080", 0);
-	ret = av_dict_set(&in_InputFormatOptions, "probesize", "42M", 0);
-	ret = av_dict_set(&in_InputFormatOptions, "draw_mouse", 0, 0);
+	ret = av_dict_set(&in_InputFormatOptions, "probesize", "100M", 0);
+	ret = av_dict_set(&in_InputFormatOptions, "draw_mouse", "0", 0);
 	if (ret < 0) {
 		cout << "error in setting dictionary value" << endl;
 		return -1;
@@ -78,16 +82,16 @@ int ScreenStreamer::startSteaming() {
 	
 	av_dump_format(in_InputFormatContext, 0, "desktop", 0);
 
-
-	// Configure output server / parameters ---------------------------------------------------------------------------------
-	avformat_network_init();
+	//##########################################
+	//## Configure output server / parameters ##
+	//##########################################
 
 	AVFormatContext* out_OutputFormatContext = NULL;
-	const char* out_ServerURL = "rtmp://192.168.1.134/live/livestream";
+	const char* out_ServerURL = "rtmp://localhost/live/livestream";
 	AVCodec* out_Codec;
 	AVCodecContext* out_CodecContext;
 	AVStream* out_Stream;
-	AVRational serverFrameRate = { 60, 1 };
+	AVRational serverFrameRate = { 30, 1 };
 	AVDictionary* out_codecOptions = nullptr;
 	const AVOutputFormat* out_OutputFormat = NULL;
 
@@ -115,11 +119,10 @@ int ScreenStreamer::startSteaming() {
 	out_CodecContext->codec_type = AVMEDIA_TYPE_VIDEO;
 	out_CodecContext->width = 1920;
 	out_CodecContext->height = 1080;
-	out_CodecContext->gop_size = 12;
+	out_CodecContext->gop_size = 30;
 	out_CodecContext->pix_fmt = AV_PIX_FMT_YUV420P;
 	out_CodecContext->framerate = serverFrameRate;
 	out_CodecContext->time_base = av_inv_q(serverFrameRate);
-	out_CodecContext->bit_rate = 6000000000;
 
 	if (out_OutputFormatContext->oformat->flags & AVFMT_GLOBALHEADER) {
 		out_CodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -134,6 +137,7 @@ int ScreenStreamer::startSteaming() {
 	av_dict_set(&out_codecOptions, "profile", "main", 0);
 	av_dict_set(&out_codecOptions, "preset", "ultrafast", 0);
 	av_dict_set(&out_codecOptions, "tune", "zerolatency", 0);
+	av_dict_set(&out_codecOptions, "pix_fmt", "yuv420p", 0);
 
 	ret = avcodec_open2(out_CodecContext, out_Codec, &out_codecOptions);
 	if (ret < 0) {
@@ -162,7 +166,9 @@ int ScreenStreamer::startSteaming() {
 		return -1;
 	}
 
-	// Send frames from input (screen) to the output server -------------------------------------------------------------
+	//##########################################################
+	//## Send frames from input (screen) to the output server ##
+	//##########################################################
 
 	SwsContext* swsContext = sws_getContext(in_codec_ctx->width, in_codec_ctx->height, in_codec_ctx->pix_fmt, out_CodecContext->width, out_CodecContext->height, out_CodecContext->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
 	
@@ -234,12 +240,15 @@ int ScreenStreamer::startSteaming() {
 		}
 
 		av_packet_unref(pkt);
+		av_packet_unref(outPacket);
 		av_frame_free(&frame);
 		av_frame_free(&out_frame);
 		av_packet_free(&outPacket);
 	}
 	
-	// free the used memory -------------------------------------------------------------------------
+	//##########################
+	//## free the used memory ##
+	//##########################
 
 	sws_freeContext(swsContext);
 
