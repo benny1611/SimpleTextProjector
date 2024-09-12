@@ -87,15 +87,15 @@ int ScreenStreamer::startSteaming() {
 	//##########################################
 
 	AVFormatContext* out_OutputFormatContext = NULL;
-	const char* out_ServerURL = "rtmp://localhost/live/livestream";
+	const char* out_ServerURL = "rtp://127.0.0.1:6000";
 	AVCodec* out_Codec;
 	AVCodecContext* out_CodecContext;
 	AVStream* out_Stream;
 	AVRational serverFrameRate = { 30, 1 };
 	AVDictionary* out_codecOptions = nullptr;
-	const AVOutputFormat* out_OutputFormat = NULL;
+	const AVOutputFormat* out_OutputFormat = av_guess_format("rtp", NULL, NULL);;
 
-	ret = avformat_alloc_output_context2(&out_OutputFormatContext, nullptr, "flv", nullptr);
+	ret = avformat_alloc_output_context2(&out_OutputFormatContext, out_OutputFormat, "rtp", nullptr);
 	if (ret < 0) {
 		std::cout << "Could not allocate output format context!" << std::endl;
 		return -1;
@@ -150,8 +150,6 @@ int ScreenStreamer::startSteaming() {
 
 	av_dump_format(out_OutputFormatContext, 0, out_ServerURL, 1);
 
-	out_OutputFormat = out_OutputFormatContext->oformat;
-
 	if (!(out_OutputFormat->flags & AVFMT_NOFILE)) {
 		ret = avio_open(&out_OutputFormatContext->pb, out_ServerURL, AVIO_FLAG_WRITE);
 		if (ret < 0) {
@@ -170,7 +168,7 @@ int ScreenStreamer::startSteaming() {
 	//## Send frames from input (screen) to the output server ##
 	//##########################################################
 
-	SwsContext* swsContext = sws_getContext(in_codec_ctx->width, in_codec_ctx->height, in_codec_ctx->pix_fmt, out_CodecContext->width, out_CodecContext->height, out_CodecContext->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
+	SwsContext* swsContext = sws_getContext(in_codec_ctx->width, in_codec_ctx->height, in_codec_ctx->pix_fmt, out_CodecContext->width, out_CodecContext->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, nullptr, nullptr, nullptr);
 	
 	AVPacket* pkt = av_packet_alloc();
 	if (!pkt) {
@@ -219,16 +217,20 @@ int ScreenStreamer::startSteaming() {
 
 		sws_scale(swsContext, frame->data, frame->linesize, 0, in_codec_ctx->height, out_frame->data, out_frame->linesize);
 
-		avcodec_send_frame(out_CodecContext, out_frame);
+		ret = avcodec_send_frame(out_CodecContext, out_frame);
+		if (ret < 0) {
+			std::cerr << "Error encoding frame for output" << std::endl;
+			return -1;
+		}
 
-		avcodec_receive_packet(out_CodecContext, outPacket);
+		ret = avcodec_receive_packet(out_CodecContext, outPacket);
+		if (ret < 0) {
+			std::cerr << "Error encoding packet for output" << std::endl;
+			return -1;
+		}
 
 		outPacket->dts = pkt->dts;
 		outPacket->pts = pkt->pts;
-
-		/* copy packet */
-		av_packet_rescale_ts(outPacket, in_stream->time_base, out_stream->time_base);
-		outPacket->pos = -1;
 
 		ret = av_interleaved_write_frame(out_OutputFormatContext, outPacket);
 		/* pkt is now blank (av_interleaved_write_frame() takes ownership of
