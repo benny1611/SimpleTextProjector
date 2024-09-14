@@ -9,6 +9,7 @@
 #include <cstring>
 #include <math.h>
 #include <string.h>
+#include <sstream>
 
 #define __STDC_CONSTANT_MACROS
 
@@ -47,9 +48,18 @@ extern "C"
 
 }
 
+#include "rtc/rtc.hpp"
+
+#include "Poco/JSON/Object.h"
+#include "Poco/JSON/Stringifier.h"
+#include "Poco/JSON/Parser.h"
+#include "Poco/Dynamic/Var.h"
+
 class ScreenStreamer {
 private:
 	bool shouldStream = false;
+	const rtc::SSRC ssrc = 42;
+	std::shared_ptr<rtc::Track> track;
 public:
 
 	ScreenStreamer();
@@ -58,6 +68,7 @@ public:
 	int startSteaming();
 	void stopStreaming();
 	bool isStreaming();
+	int handle_wirte(uint8_t* buf, int buf_size);
 };
 
 #endif

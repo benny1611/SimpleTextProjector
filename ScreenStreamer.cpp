@@ -1,6 +1,10 @@
 #include "ScreenStreamer.h"
 
 using namespace std;
+using Poco::JSON::Object;
+using Poco::JSON::Stringifier;
+using Poco::JSON::Parser;
+using Poco::Dynamic::Var;
 
 /* initialize the resources*/
 ScreenStreamer::ScreenStreamer() {
@@ -15,6 +19,23 @@ void ScreenStreamer::stopStreaming() {
 
 bool ScreenStreamer::isStreaming() {
 	return shouldStream;
+}
+
+int custom_write(void* opaque, const uint8_t* buf, int buf_size) {
+
+	ScreenStreamer* instance = static_cast<ScreenStreamer*>(opaque);
+
+	return instance->handle_wirte((uint8_t*)buf, buf_size);
+}
+
+int ScreenStreamer::handle_wirte(uint8_t* buf, int buf_size) {
+
+	auto rtp = reinterpret_cast<rtc::RtpHeader*>(buf);
+	rtp->setSsrc(ssrc);
+
+	track->send(reinterpret_cast<const std::byte*>(buf), buf_size);
+
+	return buf_size;  // Returning buf_size tells FFmpeg we handled the packet
 }
 
 int ScreenStreamer::startSteaming() {
@@ -86,6 +107,54 @@ int ScreenStreamer::startSteaming() {
 	//## Configure output server / parameters ##
 	//##########################################
 
+	rtc::InitLogger(rtc::LogLevel::Debug);
+	auto pc = std::make_shared<rtc::PeerConnection>();
+
+	pc->onStateChange(
+		[](rtc::PeerConnection::State state) { std::cout << "State: " << state << std::endl; });
+
+	pc->onGatheringStateChange([pc](rtc::PeerConnection::GatheringState state) {
+		auto description = pc->localDescription();
+
+		Object* jsonMessage = new Object();
+		jsonMessage->set("type", description->typeString());
+		jsonMessage->set("sdp", std::string(description.value()));
+
+		std::ostringstream buffer;
+		Stringifier::stringify(*jsonMessage, buffer);
+
+		std::cout << buffer.str() << std::endl;
+	});
+
+	rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
+	media.addH264Codec(96); // Must match the payload type of the external h264 RTP stream
+	media.addSSRC(ssrc, "video-send");
+	track = pc->addTrack(media);
+
+	pc->setLocalDescription();
+
+	std::cout << "RTP video stream expected on localhost:6000" << std::endl;
+	std::cout << "Please copy/paste the answer provided by the browser: " << std::endl;
+	std::string answerJSON;
+	std::getline(std::cin, answerJSON);
+
+	Parser jsonParser;
+	Var result = jsonParser.parse(answerJSON);
+	Object::Ptr pObject = result.extract<Object::Ptr>();
+
+	std::string sdp = pObject->getValue<std::string>("sdp");
+	std::string type = pObject->getValue<std::string>("type");
+
+	std::cout << "Type: " << type << std::endl << "sdp: " << sdp << std::endl;
+
+	rtc::Description answer(sdp, type);
+	pc->setRemoteDescription(answer);
+
+
+	//##########################################
+	//## Configure output format && codecs    ##
+	//##########################################
+
 	AVFormatContext* out_OutputFormatContext = NULL;
 	const char* out_ServerURL = "rtp://127.0.0.1:6000";
 	AVCodec* out_Codec;
@@ -93,21 +162,28 @@ int ScreenStreamer::startSteaming() {
 	AVStream* out_Stream;
 	AVRational serverFrameRate = { 30, 1 };
 	AVDictionary* out_codecOptions = nullptr;
-	const AVOutputFormat* out_OutputFormat = av_guess_format("rtp", NULL, NULL);;
+	const AVOutputFormat* out_OutputFormat = av_guess_format("rtp", NULL, NULL);
 
-	ret = avformat_alloc_output_context2(&out_OutputFormatContext, out_OutputFormat, "rtp", nullptr);
+	ret = avformat_alloc_output_context2(&out_OutputFormatContext, nullptr, "rtp", nullptr);
 	if (ret < 0) {
 		std::cout << "Could not allocate output format context!" << std::endl;
 		return -1;
 	}
 
-	if (out_OutputFormatContext->oformat->flags & AVFMT_NOFILE) {
-		ret = avio_open2(&out_OutputFormatContext->pb, out_ServerURL, AVIO_FLAG_WRITE, nullptr, nullptr);
-		if (ret < 0) {
-			std::cout << "Could not open output IO context!" << std::endl;
-			return -1;
-		}
+	// Allocate custom AVIO context (for intercepting writes)
+	unsigned char* avio_ctx_buffer = (unsigned char*)av_malloc(4096);  // Buffer for AVIO context
+	AVIOContext* avio_ctx = avio_alloc_context(avio_ctx_buffer, 4096, 1, this, nullptr, &custom_write, nullptr);
+
+	if (!avio_ctx) {
+		std::cerr << "Could not allocate AVIO context" << std::endl;
+		return 1;
 	}
+
+	// Replace the default AVIO context with our custom one
+	out_OutputFormatContext->pb = avio_ctx;
+	out_OutputFormatContext->pb->max_packet_size = 1200;
+	out_OutputFormatContext->flags |= AVFMT_FLAG_CUSTOM_IO;
+	out_OutputFormatContext->oformat = out_OutputFormat;
 
 	// set codec parameters
 	out_Codec = (AVCodec*)avcodec_find_encoder(AV_CODEC_ID_H264);
@@ -148,21 +224,14 @@ int ScreenStreamer::startSteaming() {
 	out_Stream->codecpar->extradata = out_CodecContext->extradata;
 	out_Stream->codecpar->extradata_size = out_CodecContext->extradata_size;
 
-	av_dump_format(out_OutputFormatContext, 0, out_ServerURL, 1);
-
-	if (!(out_OutputFormat->flags & AVFMT_NOFILE)) {
-		ret = avio_open(&out_OutputFormatContext->pb, out_ServerURL, AVIO_FLAG_WRITE);
-		if (ret < 0) {
-			fprintf(stderr, "Could not open output file '%s'", out_ServerURL);
-			return -1;
-		}
-	}
+	av_dump_format(out_OutputFormatContext, 0, nullptr, 1);
 
 	ret = avformat_write_header(out_OutputFormatContext, NULL);
 	if (ret < 0) {
-		fprintf(stderr, "Error occurred when opening output file\n");
+		fprintf(stderr, "Error occurred when writing header\n");
 		return -1;
 	}
+
 
 	//##########################################################
 	//## Send frames from input (screen) to the output server ##
@@ -232,7 +301,7 @@ int ScreenStreamer::startSteaming() {
 		outPacket->dts = pkt->dts;
 		outPacket->pts = pkt->pts;
 
-		ret = av_interleaved_write_frame(out_OutputFormatContext, outPacket);
+		ret = av_write_frame(out_OutputFormatContext, outPacket);
 		/* pkt is now blank (av_interleaved_write_frame() takes ownership of
 		 * its contents and resets pkt), so that no unreferencing is necessary.
 		 * This would be different if one used av_write_frame(). */
