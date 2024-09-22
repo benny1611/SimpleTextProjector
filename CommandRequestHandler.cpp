@@ -1,6 +1,7 @@
 #include "CommandRequestHandler.h"
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
+#include "Poco/Net/HTTPResponse.h"
 #include "Poco/Util/ServerApplication.h"
 #include "Poco/JSON/Parser.h"
 #include "Poco/JSON/Object.h"
@@ -13,6 +14,7 @@
 using Poco::Util::Application;
 using Poco::Net::HTTPServerRequest;
 using Poco::Net::HTTPServerResponse;
+using Poco::Net::HTTPResponse;
 using Poco::JSON::Parser;
 using Poco::JSON::Object;
 using Poco::Dynamic::Var;
@@ -22,17 +24,19 @@ void handleText(std::string& textValue, Application& app);
 std::string handleFont(std::string& fontPathValue, Application& app);
 int handleFontSize(float fontSizeValue, Application& app);
 std::string handleTextColor(Var& colorString, Application& app);
+bool handleStream(bool value, Application& app);
 
 void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
 	Application& app = Application::instance();
 	app.logger().information("Request from: " + request.clientAddress().toString());
 
-	response.setChunkedTransferEncoding(true);
-	response.setContentType("application/json");
-	std::ostream& ostr = response.send();
 	std::string method = request.getMethod();
+	std::string uri = request.getURI();
 
 	if (method == "POST") {
+		response.setChunkedTransferEncoding(true);
+		response.setContentType("application/json");
+		std::ostream& ostr = response.send();
 		std::istream& bodyStream = request.stream();
 		int length = request.getContentLength();
 		char* buffer = new char[length];
@@ -41,8 +45,38 @@ void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
 		std::string body(buffer);
 		std::cout << "Here: " << body << std::endl;
 		ostr << "{\"success\": true}";
-	}
-	else {
+	} else if (method == "GET") {
+		if (uri == "/" || uri == "/index.html") {
+			
+
+			std::string line;
+
+			// Read from the text file
+			std::ifstream indexFileStream("www/index.html");
+			if (!indexFileStream.good()) {
+				indexFileStream.close();
+				response.setStatus(HTTPResponse::HTTP_NOT_FOUND);
+				response.send();
+			}
+			response.setStatus(HTTPResponse::HTTP_OK);
+			std::ostream& ostr = response.send();
+
+			while (getline(indexFileStream, line)) {
+				ostr << line;
+			}
+
+			// Close the file
+			indexFileStream.close();
+		}
+		else {
+			response.setStatus(HTTPResponse::HTTP_NOT_FOUND);
+			response.send();
+		}
+		
+	} else {
+		response.setChunkedTransferEncoding(true);
+		response.setContentType("application/json");
+		std::ostream& ostr = response.send();
 		ostr << "{\"success\": false}";
 	}	
 }
@@ -76,7 +110,6 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 		handleText(textValue, app);
 	}
 	if (pObject->has("text_color")) {
-		//Object::Ptr color = pObject->getValue<Object::Ptr>("text_color");
 		Var color = pObject->get("text_color");
 		std::string error = handleTextColor(color, app);
 		if (!error.empty()) {
@@ -96,6 +129,21 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 		if (!success) {
 			std::string error = "Error: could not set font size to: ";
 			error = error + std::to_string(fontSizeValue);
+			ws.sendFrame(error.c_str(), error.length());
+		}
+	}
+	if (pObject->has("stream")) {
+		bool shouldStream = pObject->getValue<bool>("stream");
+		bool success = handleStream(shouldStream, app);
+		if (!success) {
+			std::string error = "Error: could not ";
+			if (shouldStream) {
+				error += "start";
+			}
+			else {
+				error += "stop";
+			}
+			error += " the streaming server";
 			ws.sendFrame(error.c_str(), error.length());
 		}
 	}
@@ -194,4 +242,38 @@ int handleFontSize(float fontSizeValue, Application& app) {
 	} else {
 		return 0;
 	}
+}
+
+bool handleStream(bool value, Application& app) {
+	streamingServerMutex.lock();
+	if (value && !isServerRunning) {
+		// start the server
+
+		// check if it's still there
+		if (screenStreamer != nullptr) {
+			delete screenStreamer;
+		}
+
+		screenStreamer = new ScreenStreamer();
+		screenStreamer->startSteaming();
+
+		isServerRunning = true;
+	}
+	else if (!value && isServerRunning) {
+		// stop the server & cleanup
+
+		if (screenStreamer != nullptr) {
+			screenStreamer->stopStreaming();
+			delete screenStreamer;
+			screenStreamer = nullptr;
+		}
+
+		isServerRunning = false;
+	}
+	else {
+		return false;
+	}
+	streamingServerMutex.unlock();
+
+	return true;
 }

@@ -68,7 +68,7 @@ public:
 	int startSteaming();
 	void stopStreaming();
 	bool isStreaming();
-	int handle_wirte(uint8_t* buf, int buf_size);
+	int handle_write(uint8_t* buf, int buf_size);
 };
 
 #endif

@@ -25,10 +25,10 @@ int custom_write(void* opaque, const uint8_t* buf, int buf_size) {
 
 	ScreenStreamer* instance = static_cast<ScreenStreamer*>(opaque);
 
-	return instance->handle_wirte((uint8_t*)buf, buf_size);
+	return instance->handle_write((uint8_t*)buf, buf_size);
 }
 
-int ScreenStreamer::handle_wirte(uint8_t* buf, int buf_size) {
+int ScreenStreamer::handle_write(uint8_t* buf, int buf_size) {
 
 	auto rtp = reinterpret_cast<rtc::RtpHeader*>(buf);
 	rtp->setSsrc(ssrc);
@@ -64,7 +64,7 @@ int ScreenStreamer::startSteaming() {
 		return -1;
 	}
 
-	ret = avformat_open_input(&in_InputFormatContext, "desktop", in_InputFormat, &in_InputFormatOptions); // second parameter is the -i parameter of ffmpeg, use title=window_title to specify the window later
+	ret = avformat_open_input(&in_InputFormatContext, "title=SimpleTextProjector", in_InputFormat, &in_InputFormatOptions); // second parameter is the -i parameter of ffmpeg, use title=window_title to specify the window later
 
 	if (ret != 0) {
 		cout << "error: could not open gdigrab" << endl;
@@ -156,7 +156,6 @@ int ScreenStreamer::startSteaming() {
 	//##########################################
 
 	AVFormatContext* out_OutputFormatContext = NULL;
-	const char* out_ServerURL = "rtp://127.0.0.1:6000";
 	AVCodec* out_Codec;
 	AVCodecContext* out_CodecContext;
 	AVStream* out_Stream;
@@ -302,19 +301,17 @@ int ScreenStreamer::startSteaming() {
 		outPacket->pts = pkt->pts;
 
 		ret = av_write_frame(out_OutputFormatContext, outPacket);
-		/* pkt is now blank (av_interleaved_write_frame() takes ownership of
-		 * its contents and resets pkt), so that no unreferencing is necessary.
-		 * This would be different if one used av_write_frame(). */
-		if (ret < 0) {
-			fprintf(stderr, "Error muxing packet\n");
-			break;
-		}
 
 		av_packet_unref(pkt);
 		av_packet_unref(outPacket);
 		av_frame_free(&frame);
 		av_frame_free(&out_frame);
 		av_packet_free(&outPacket);
+
+		if (ret < 0) {
+			fprintf(stderr, "Error muxing packet\n");
+			break;
+		}
 	}
 	
 	//##########################
