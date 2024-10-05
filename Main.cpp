@@ -45,7 +45,8 @@ std::set<WebSocket> clients;
 Mutex textMutex;
 Mutex clientSetMutex;
 Mutex streamingServerMutex;
-ScreenStreamer* screenStreamer = nullptr;
+Poco::TaskManager* taskManager;
+ScreenStreamerTask* screenStreamerTask;
 
 char* text = new char[100];
 
@@ -58,17 +59,10 @@ float fontSize = 72.0f;
 float baseSize = fontSize;
 bool isServerRunning = false;
 
+
 static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing, float desiredFontSize, bool wordWrap, Color textColor);
 
 int main(int argc, char** argv) {
-    ScreenStreamer* screenStreamer2 = new ScreenStreamer();
-    /*int ret = screenStreamer2->startSteaming();
-    if (ret < 0) {
-        exit(1);
-    }
-    else {
-        exit(0);
-    }*/
     char* initialText = (char*)"\xC3\x8E\xC8\x9B\x69\x20\x6D\x75\x6C\xC8\x9B\x75\x6D\x65\x73\x63\x20\x63\xC4\x83\x20\x61\x69\x20\x61\x6C\x65\x73\x20\x72\x61\x79\x6C\x69\x62\x2E\x0A";
     int initTextLength = strlen(initialText);
     memcpy_s(text, initTextLength, initialText, initTextLength);
@@ -78,6 +72,7 @@ int main(int argc, char** argv) {
     ErrorHandler::set(&ceh);
 
     Poco::TaskManager tm = Poco::TaskManager("STPMainTaskManager");
+    taskManager = &tm;
 
     // set up two channel chains - one to the
     // console and the other one to a log file.
@@ -103,13 +98,13 @@ int main(int argc, char** argv) {
         // start HTTP Server
         HTTPServer = new HTTPCommandServer();
         HTTPServerTask* httpTask = new HTTPServerTask(HTTPServer, argc, argv);
-        tm.start(httpTask);
+        taskManager->start(httpTask);
     }
     else {
         // start HTTPS Server
         HTTPSServer = new HTTPSCommandServer();
         HTTPSServerTask* httpsTask = new HTTPSServerTask(HTTPSServer, argc, argv);
-        tm.start(httpsTask);
+        taskManager->start(httpsTask);
     }
 
     int currentMonitor = GetCurrentMonitor();

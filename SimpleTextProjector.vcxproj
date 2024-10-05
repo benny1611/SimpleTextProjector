@@ -154,6 +154,7 @@
     <ClCompile Include="HTTPSCommandServer.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="ScreenStreamer.cpp" />
+    <ClCompile Include="ScreenStreamerTask.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base64.h" />
@@ -162,6 +163,7 @@
     <ClInclude Include="HTTPCommandServer.h" />
     <ClInclude Include="HTTPSCommandServer.h" />
     <ClInclude Include="ScreenStreamer.h" />
+    <ClInclude Include="ScreenStreamerTask.h" />
     <ClInclude Include="WebSocketHandler.h" />
     <ClInclude Include="SharedVariables.h" />
   </ItemGroup>

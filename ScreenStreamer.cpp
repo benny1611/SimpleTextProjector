@@ -3,22 +3,30 @@
 using namespace std;
 using Poco::JSON::Object;
 using Poco::JSON::Stringifier;
-using Poco::JSON::Parser;
 using Poco::Dynamic::Var;
 
 /* initialize the resources*/
-ScreenStreamer::ScreenStreamer() {
+ScreenStreamer::ScreenStreamer(Task* tsk, Event* stop_event, Mutex* mtx) {
 	avdevice_register_all();
+	task = tsk;
+	stopEvent = stop_event;
+	mutex = mtx;
 }
 
 ScreenStreamer::~ScreenStreamer() {}
 
 void ScreenStreamer::stopStreaming() {
+	mutex->lock();
 	shouldStream = false;
+	mutex->unlock();
 }
 
 bool ScreenStreamer::isStreaming() {
-	return shouldStream;
+	bool result;
+	mutex->lock();
+	result = shouldStream;
+	mutex->unlock();
+	return result;
 }
 
 int custom_write(void* opaque, const uint8_t* buf, int buf_size) {
@@ -36,6 +44,29 @@ int ScreenStreamer::handle_write(uint8_t* buf, int buf_size) {
 	track->send(reinterpret_cast<const std::byte*>(buf), buf_size);
 
 	return buf_size;  // Returning buf_size tells FFmpeg we handled the packet
+}
+
+int ScreenStreamer::setAnswer(Object::Ptr answerJSON) {
+
+	try {
+		std::string sdp = answerJSON->getValue<std::string>("sdp");
+		std::string type = answerJSON->getValue<std::string>("type");
+
+		std::cout << "Type: " << type << std::endl << "sdp: " << sdp << std::endl;
+
+		rtc::Description answer(sdp, type);
+		pc->setRemoteDescription(answer);
+		return 0;
+	}
+	catch (Exception ex) {
+		std::string error = "Something happened when trying to set the answer: " + ex.message();
+		std::cout << error << std::endl;
+		return -1;
+	}
+}
+
+std::string ScreenStreamer::getOffer() {
+	return this->offer;
 }
 
 int ScreenStreamer::startSteaming() {
@@ -108,13 +139,13 @@ int ScreenStreamer::startSteaming() {
 	//##########################################
 
 	rtc::InitLogger(rtc::LogLevel::Debug);
-	auto pc = std::make_shared<rtc::PeerConnection>();
+	pc = std::make_shared<rtc::PeerConnection>();
 
 	pc->onStateChange(
 		[](rtc::PeerConnection::State state) { std::cout << "State: " << state << std::endl; });
 
-	pc->onGatheringStateChange([pc](rtc::PeerConnection::GatheringState state) {
-		auto description = pc->localDescription();
+	pc->onGatheringStateChange([this](rtc::PeerConnection::GatheringState state) {
+		auto description = this->pc->localDescription();
 
 		Object* jsonMessage = new Object();
 		jsonMessage->set("type", description->typeString());
@@ -123,7 +154,8 @@ int ScreenStreamer::startSteaming() {
 		std::ostringstream buffer;
 		Stringifier::stringify(*jsonMessage, buffer);
 
-		std::cout << buffer.str() << std::endl;
+		//std::cout << buffer.str() << std::endl;
+		this->offer = buffer.str();
 	});
 
 	rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
@@ -132,24 +164,6 @@ int ScreenStreamer::startSteaming() {
 	track = pc->addTrack(media);
 
 	pc->setLocalDescription();
-
-	std::cout << "RTP video stream expected on localhost:6000" << std::endl;
-	std::cout << "Please copy/paste the answer provided by the browser: " << std::endl;
-	std::string answerJSON;
-	std::getline(std::cin, answerJSON);
-
-	Parser jsonParser;
-	Var result = jsonParser.parse(answerJSON);
-	Object::Ptr pObject = result.extract<Object::Ptr>();
-
-	std::string sdp = pObject->getValue<std::string>("sdp");
-	std::string type = pObject->getValue<std::string>("type");
-
-	std::cout << "Type: " << type << std::endl << "sdp: " << sdp << std::endl;
-
-	rtc::Description answer(sdp, type);
-	pc->setRemoteDescription(answer);
-
 
 	//##########################################
 	//## Configure output format && codecs    ##
@@ -244,14 +258,31 @@ int ScreenStreamer::startSteaming() {
 		return -1;
 	}
 	
+	mutex->lock();
 	shouldStream = true;
+	mutex->unlock();
 
-	while (shouldStream) {
+	Thread::sleep(30000);
+	std::cout << "Started sending..." << std::endl;
+
+	while (!task->isCancelled()) {
+		mutex->lock();
+
+		if (!shouldStream) {
+			mutex->unlock();
+			break;
+		}
+		else {
+			mutex->unlock();
+		}
+
 		AVStream* in_stream, * out_stream;
 
 		ret = av_read_frame(in_InputFormatContext, pkt);
-		if (ret < 0)
+		if (ret < 0) {
 			break;
+			mutex->unlock();
+		}
 
 		in_stream = in_InputFormatContext->streams[pkt->stream_index];
 
@@ -268,16 +299,20 @@ int ScreenStreamer::startSteaming() {
 
 		ret = avcodec_send_packet(in_codec_ctx, pkt);
 		if (ret < 0) {
+			mutex->unlock();
 			std::cerr << "Error sending packet to codec" << std::endl;
 			return -1;
 		}
 
 		ret = avcodec_receive_frame(in_codec_ctx, frame);
 
-		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+			mutex->unlock();
 			break;
+		}
 		else if (ret < 0) {
 			std::cerr << "Error receiving frame from codec" << std::endl;
+			mutex->unlock();
 			return -1;
 		}
 
@@ -288,12 +323,14 @@ int ScreenStreamer::startSteaming() {
 		ret = avcodec_send_frame(out_CodecContext, out_frame);
 		if (ret < 0) {
 			std::cerr << "Error encoding frame for output" << std::endl;
+			mutex->unlock();
 			return -1;
 		}
 
 		ret = avcodec_receive_packet(out_CodecContext, outPacket);
 		if (ret < 0) {
 			std::cerr << "Error encoding packet for output" << std::endl;
+			mutex->unlock();
 			return -1;
 		}
 
@@ -310,9 +347,13 @@ int ScreenStreamer::startSteaming() {
 
 		if (ret < 0) {
 			fprintf(stderr, "Error muxing packet\n");
+			mutex->unlock();
 			break;
 		}
+		//mutex->unlock();
 	}
+
+	std::cout << "Ending server" << std::endl;
 	
 	//##########################
 	//## free the used memory ##
@@ -352,6 +393,8 @@ int ScreenStreamer::startSteaming() {
 		cout << "\nunable to free avformat context";
 		return -1;
 	}
+
+	stopEvent->set();
 
 	return 0;
 }

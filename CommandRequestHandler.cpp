@@ -46,14 +46,14 @@ void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
 		std::cout << "Here: " << body << std::endl;
 		ostr << "{\"success\": true}";
 	} else if (method == "GET") {
-		if (uri == "/" || uri == "/index.html") {
+		if (uri == "/live" || uri == "/live/index.html") {
 			
-
 			std::string line;
 
 			// Read from the text file
 			std::ifstream indexFileStream("www/index.html");
 			if (!indexFileStream.good()) {
+				app.logger().error("Could not find the index.html file");
 				indexFileStream.close();
 				response.setStatus(HTTPResponse::HTTP_NOT_FOUND);
 				response.send();
@@ -63,6 +63,7 @@ void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
 
 			while (getline(indexFileStream, line)) {
 				ostr << line;
+				ostr << "\r\n";
 			}
 
 			// Close the file
@@ -70,7 +71,8 @@ void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
 		}
 		else {
 			response.setStatus(HTTPResponse::HTTP_NOT_FOUND);
-			response.send();
+			std::ostream& ostr = response.send();
+			ostr << "Could not find the requested page, go to localhost/live to see the live stream";
 		}
 		
 	} else {
@@ -91,7 +93,7 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 		clientSetMutex.unlock();
 	}
 	Application& app = Application::instance();
-	app.logger().information("Your JSON Command: " + jsonCommand);
+	//app.logger().information("Your JSON Command: " + jsonCommand);
 
 	Object::Ptr pObject;
 	try {
@@ -145,6 +147,41 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 			}
 			error += " the streaming server";
 			ws.sendFrame(error.c_str(), error.length());
+		}
+	}
+	if (pObject->has("get")) {
+		std::string what = pObject->getValue<std::string>("get");
+		if (what == "stream") {
+			streamingServerMutex.lock();
+			std::string isStreamingJSON = "{\"isStreaming\":";
+			if (isServerRunning) {
+				isStreamingJSON += "true, \"offer\": ";
+				isStreamingJSON += screenStreamerTask->getOffer();
+			}
+			else {
+				isStreamingJSON += "false";
+			}
+			isStreamingJSON += "}";
+			streamingServerMutex.unlock();
+			ws.sendFrame(isStreamingJSON.c_str(), isStreamingJSON.length());
+		}
+		else if (what == "ping") {
+			std::string pong = "{\"pong\": true}";
+			ws.sendFrame(pong.c_str(), pong.length());
+		}
+	}
+	if (pObject->has("set")) {
+		std::string what = pObject->getValue<std::string>("set");
+		if (what == "answer") {
+			if (pObject->has("answer")) {
+				Var answerVar = pObject->get("answer");
+				Object::Ptr answer = answerVar.extract<Object::Ptr>();
+				streamingServerMutex.lock();
+				if (isServerRunning) {
+					screenStreamerTask->setAnswer(answer);
+				}
+				streamingServerMutex.unlock();
+			}
 		}
 	}
 }
@@ -246,33 +283,26 @@ int handleFontSize(float fontSizeValue, Application& app) {
 
 bool handleStream(bool value, Application& app) {
 	streamingServerMutex.lock();
+	std::cout << "Got the mutex to the server..." << std::endl;
 	if (value && !isServerRunning) {
 		// start the server
 
-		// check if it's still there
-		if (screenStreamer != nullptr) {
-			delete screenStreamer;
-		}
-
-		screenStreamer = new ScreenStreamer();
-		screenStreamer->startSteaming();
+		screenStreamerTask = new ScreenStreamerTask(&streamingServerMutex, 0, 0);
+		taskManager->start(screenStreamerTask);
 
 		isServerRunning = true;
 	}
 	else if (!value && isServerRunning) {
 		// stop the server & cleanup
 
-		if (screenStreamer != nullptr) {
-			screenStreamer->stopStreaming();
-			delete screenStreamer;
-			screenStreamer = nullptr;
-		}
+		screenStreamerTask->cancel();
 
 		isServerRunning = false;
 	}
 	else {
 		return false;
 	}
+	std::cout << "Done with the mutex to the server..." << std::endl;
 	streamingServerMutex.unlock();
 
 	return true;

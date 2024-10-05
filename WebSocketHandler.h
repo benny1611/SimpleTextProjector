@@ -53,10 +53,15 @@ public:
 
 			do {
 				n = ws->receiveFrame(buffer, sizeof(buffer), flags);
-				app.logger().information(Poco::format("Frame received (length=%d, flags=0x%x).", n, unsigned(flags)));
+				if (n != 15 && flags != 0x81) { // ignore ping/pong
+					app.logger().information(Poco::format("Frame received (length=%d, flags=0x%x).", n, unsigned(flags)));
+				}
 				if (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE) {
 					buffer[n] = '\0';
 					std::string jsonCommand = buffer;
+					if (n != 15 && flags != 0x81) { // ignore ping/pong
+						app.logger().information(jsonCommand);
+					}
 					handleCommand(jsonCommand, *ws);
 				}
 			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);

@@ -2,45 +2,89 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>libdatachannel media sender example</title>
+    <title>SimpleTextProjector</title>
 </head>
 <body>
-
-<p>Please enter the offer provided to you by the sender application: </p>
-<textarea cols="80" rows="25"></textarea>
-<button>Submit</button>
-
+<h1 id="error-header"></h1>
 <video id="video-element" muted></video>
 
 <script>
-    document.querySelector('button').addEventListener('click',  async () => {
-        const offer = JSON.parse(document.querySelector('textarea').value);
-        const pc = new RTCPeerConnection({
-            // Recommended for libdatachannel
-            bundlePolicy: 'max-bundle',
-        });
 
-        pc.onicegatheringstatechange = (state) => {
-            if (pc.iceGatheringState === 'complete') {
-                // We only want to provide an answer once all of our candidates have been added to the SDP.
-                const answer = pc.localDescription;
-                document.querySelector('textarea').value = JSON.stringify({"type": answer.type, sdp: answer.sdp});
-                document.querySelector('p').value = 'Please paste the answer in the sender application.';
-                alert('Please paste the answer in the sender application.');
-            }
-        }
+var socket;
+const errorHeader = document.getElementById('error-header');
+const pc = new RTCPeerConnection({
+	// Recommended for libdatachannel
+	bundlePolicy: 'max-bundle',
+});
 
-		pc.ontrack = (evt) => {
-			const videoElement = document.getElementById('video-element');
-			videoElement.srcObject = evt.streams[0];
-			videoElement.play();
-		};
+pc.onicegatheringstatechange = (state) => {
+	if (pc.iceGatheringState === 'complete') {
+		// We only want to provide an answer once all of our candidates have been added to the SDP.
+		const answer = pc.localDescription;
+		let answerJSONtoSend = {};
+		answerJSONtoSend["answer"] = {"type": answer.type, sdp: answer.sdp};
+		answerJSONtoSend["set"] = "answer";
+		socket.send(JSON.stringify(answerJSONtoSend));
+	}
+}
 
-        await pc.setRemoteDescription(offer);
+pc.ontrack = (evt) => {
+	const videoElement = document.getElementById('video-element');
+	videoElement.srcObject = evt.streams[0];
+	videoElement.play();
+};
 
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-    })
+function onSocketOpen(event) {
+	socket.send("{\"get\": \"stream\"}");
+}
+
+async function onSocketMessage(event) {
+	let isStreamingTMP = JSON.parse(event.data).isStreaming;
+	if ( typeof(isStreamingTMP) !== "undefined" && isStreamingTMP !== null ) {
+		const isStreaming = JSON.parse(event.data).isStreaming;
+		if (!isStreaming) {
+			errorHeader.innerHTML = "Server is not streaming, please activate streaming.";
+		} else {
+			errorHeader.innerHTML = "";
+			let offer = JSON.parse(event.data).offer;
+			console.log(offer);
+			await pc.setRemoteDescription(offer);
+
+			const answer = await pc.createAnswer();
+			await pc.setLocalDescription(answer);
+		}
+	}
+}
+
+function onSocketClose(event) {
+	console.log(event);
+}
+
+function sendPing() {
+	if (socket.readyState !== WebSocket.CLOSED) {
+		socket.send("{\"get\": \"ping\"}");
+	}
+}
+
+window.onload = function() {
+    let host = window.location.host;
+	socket = new WebSocket('ws://' + host);
+	if (socket.readyState === WebSocket.CLOSED) {
+		console.log("Could not establish WebSockets connection");
+		errorHeader.innerHTML = "Could not establish WebSockets connection";
+		return;
+	} else {
+		errorHeader.innerHTML = "";
+		console.log("Connection established");
+	}
+	
+	socket.onopen = onSocketOpen;
+	socket.onmessage = onSocketMessage;
+	socket.onclose = onSocketClose;
+	const interval = setInterval(function() {
+		sendPing();
+	}, 10000);
+};
 </script>
 
 </body>
