@@ -3,22 +3,29 @@
 
 ScreenStreamerTask::ScreenStreamerTask(Mutex* mutex, int argc, char** argv) : Task("ScreenStreamerTask") {
 	this->screenStreamer = new ScreenStreamer(this, &stopEvent, mutex);
+	this->mtx = mutex;
 }
 
 void ScreenStreamerTask::runTask() {
 	this->screenStreamer->startSteaming();
 }
 
-std::string ScreenStreamerTask::getOffer() {
-	return this->screenStreamer->getOffer();
+void ScreenStreamerTask::registerReceiver(WebSocket& client, Event* offerEvent) {
+	this->screenStreamer->registerReceiver(client, offerEvent);
 }
 
-int ScreenStreamerTask::setAnswer(Object::Ptr answer) {
-	return this->screenStreamer->setAnswer(answer);
+std::string ScreenStreamerTask::getOffer(WebSocket& client) {
+	return this->screenStreamer->getOffer(client);
+}
+
+int ScreenStreamerTask::setAnswer(WebSocket& client, Object::Ptr answer) {
+	return this->screenStreamer->setAnswer(client, answer);
 }
 
 void ScreenStreamerTask::cancel() {
 	this->screenStreamer->stopStreaming();
-	stopEvent.wait();
-	delete screenStreamer;
+}
+
+Event* ScreenStreamerTask::getStopEvent() {
+	return &this->stopEvent;
 }

@@ -10,6 +10,7 @@
 #include <math.h>
 #include <string.h>
 #include <sstream>
+#include <set>
 
 #define __STDC_CONSTANT_MACROS
 
@@ -57,6 +58,7 @@ extern "C"
 #include "Poco/Mutex.h"
 #include "Poco/Thread.h"
 #include "Poco/Exception.h"
+#include "Poco/Net/WebSocket.h"
 
 using Poco::Task;
 using Poco::Event;
@@ -64,17 +66,26 @@ using Poco::Mutex;
 using Poco::Thread;
 using Poco::Exception;
 using Poco::JSON::Object;
+using Poco::Net::WebSocket;
+
+class Receiver {
+public:
+	std::shared_ptr<rtc::PeerConnection> conn;
+	std::shared_ptr<rtc::Track> track;
+	WebSocket* client;
+	std::string offer;
+	bool isConnected = false;
+};
 
 class ScreenStreamer {
 private:
 	bool shouldStream = false;
 	const rtc::SSRC ssrc = 42;
-	std::string offer;
-	std::shared_ptr<rtc::Track> track;
-	std::shared_ptr<rtc::PeerConnection> pc;
 	Task* task;
 	Mutex* mutex;
 	Event* stopEvent;
+	std::set <std::shared_ptr<Receiver>> receivers;
+	void getReceiver(const WebSocket& client, std::shared_ptr<Receiver>& recv);
 public:
 
 	ScreenStreamer(Task* tsk, Event *stop_event, Mutex* mtx);
@@ -82,10 +93,12 @@ public:
 
 	int startSteaming();
 	void stopStreaming();
-	int setAnswer(Object::Ptr answerJSON);
 	bool isStreaming();
 	int handle_write(uint8_t* buf, int buf_size);
-	std::string getOffer();
+
+	void registerReceiver(WebSocket& client, Event* offerEvent);
+	std::string getOffer(WebSocket& client);
+	int setAnswer(WebSocket& client, Object::Ptr answerJSON);
 };
 
 #endif

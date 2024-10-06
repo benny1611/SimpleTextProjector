@@ -11,6 +11,7 @@
 <script>
 
 var socket;
+var isStreaming = false;
 const errorHeader = document.getElementById('error-header');
 const pc = new RTCPeerConnection({
 	// Recommended for libdatachannel
@@ -41,13 +42,16 @@ function onSocketOpen(event) {
 async function onSocketMessage(event) {
 	let isStreamingTMP = JSON.parse(event.data).isStreaming;
 	if ( typeof(isStreamingTMP) !== "undefined" && isStreamingTMP !== null ) {
-		const isStreaming = JSON.parse(event.data).isStreaming;
-		if (!isStreaming) {
+		const isStreamingLocal = JSON.parse(event.data).isStreaming;
+		isStreaming = isStreamingLocal;
+		if (!isStreamingLocal) {
 			errorHeader.innerHTML = "Server is not streaming, please activate streaming.";
 		} else {
 			errorHeader.innerHTML = "";
 			let offer = JSON.parse(event.data).offer;
-			console.log(offer);
+			if (offer === "error") {
+				console.log("Error: could not parse offer");
+			}
 			await pc.setRemoteDescription(offer);
 
 			const answer = await pc.createAnswer();
@@ -66,6 +70,12 @@ function sendPing() {
 	}
 }
 
+function checkIfIsStreaming() {
+	if (socket.readyState !== WebSocket.CLOSED && !isStreaming) {
+		socket.send("{\"get\": \"stream\"}");
+	}
+}
+
 window.onload = function() {
     let host = window.location.host;
 	socket = new WebSocket('ws://' + host);
@@ -81,8 +91,12 @@ window.onload = function() {
 	socket.onopen = onSocketOpen;
 	socket.onmessage = onSocketMessage;
 	socket.onclose = onSocketClose;
-	const interval = setInterval(function() {
+	const pingInterval = setInterval(function() {
 		sendPing();
+	}, 10000);
+	
+	const checkIfIsStreamingInterval = setInterval(function() {
+		checkIfIsStreaming();
 	}, 10000);
 };
 </script>

@@ -16,9 +16,7 @@ ScreenStreamer::ScreenStreamer(Task* tsk, Event* stop_event, Mutex* mtx) {
 ScreenStreamer::~ScreenStreamer() {}
 
 void ScreenStreamer::stopStreaming() {
-	mutex->lock();
 	shouldStream = false;
-	mutex->unlock();
 }
 
 bool ScreenStreamer::isStreaming() {
@@ -41,12 +39,21 @@ int ScreenStreamer::handle_write(uint8_t* buf, int buf_size) {
 	auto rtp = reinterpret_cast<rtc::RtpHeader*>(buf);
 	rtp->setSsrc(ssrc);
 
-	track->send(reinterpret_cast<const std::byte*>(buf), buf_size);
+	set<std::shared_ptr<Receiver>>::iterator itr;
+
+	for (itr = receivers.begin(); itr != receivers.end(); itr++) {
+		std::shared_ptr<Receiver> tmp = *itr;
+		Receiver rr = *tmp;
+		if (rr.isConnected) {
+			std::shared_ptr<rtc::Track> tmpTrack = rr.track;
+			tmpTrack->send(reinterpret_cast<const std::byte*>(buf), buf_size);
+		}
+	}
 
 	return buf_size;  // Returning buf_size tells FFmpeg we handled the packet
 }
 
-int ScreenStreamer::setAnswer(Object::Ptr answerJSON) {
+int ScreenStreamer::setAnswer(WebSocket& client, Object::Ptr answerJSON) {
 
 	try {
 		std::string sdp = answerJSON->getValue<std::string>("sdp");
@@ -55,7 +62,11 @@ int ScreenStreamer::setAnswer(Object::Ptr answerJSON) {
 		std::cout << "Type: " << type << std::endl << "sdp: " << sdp << std::endl;
 
 		rtc::Description answer(sdp, type);
-		pc->setRemoteDescription(answer);
+
+		std::shared_ptr<Receiver> currentReceiver;
+		this->getReceiver(client, currentReceiver);
+
+		currentReceiver->conn->setRemoteDescription(answer);
 		return 0;
 	}
 	catch (Exception ex) {
@@ -65,8 +76,93 @@ int ScreenStreamer::setAnswer(Object::Ptr answerJSON) {
 	}
 }
 
-std::string ScreenStreamer::getOffer() {
-	return this->offer;
+void ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
+	std::shared_ptr<Receiver> r = std::make_shared<Receiver>();
+	r->conn = std::make_shared<rtc::PeerConnection>();
+	r->conn->onStateChange([this, client](rtc::PeerConnection::State state) {
+		std::cout << "State: " << state << std::endl;
+		std::shared_ptr<Receiver> currentReceiver;
+		this->getReceiver(client, currentReceiver);
+		if (state == rtc::PeerConnection::State::Connected) {
+			currentReceiver->isConnected = true;
+		}
+		if (state == rtc::PeerConnection::State::Disconnected || state == rtc::PeerConnection::State::Closed) {
+			this->receivers.erase(currentReceiver);
+		}
+	});
+
+	r->conn->onGatheringStateChange([r, this, client, offerEvent](rtc::PeerConnection::GatheringState state) {
+		std::cout << "Gathering State: " << state << std::endl;
+		if (state == rtc::PeerConnection::GatheringState::Complete) {
+			auto description = r->conn->localDescription();
+			Object* jsonMessage = new Object();
+			jsonMessage->set("type", description->typeString());
+			jsonMessage->set("sdp", std::string(description.value()));
+
+			std::ostringstream buffer;
+			Stringifier::stringify(*jsonMessage, buffer);
+
+			std::shared_ptr<Receiver> currentReceiver;
+			this->getReceiver(client, currentReceiver);
+
+			if (currentReceiver != NULL) {
+				currentReceiver.get()->offer = buffer.str();
+			}
+
+			offerEvent->set();
+		}
+	});
+
+	rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
+	media.addH264Codec(96);
+	media.setBitrate(3000);
+	media.addSSRC(ssrc, "video-send");
+
+	r->track = r->conn->addTrack(media);
+
+	r->track->onOpen([r]() {
+		r->track->requestKeyframe(); // So the receiver can start playing immediately
+	});
+
+	r->track->onClosed([this, r]() {
+		this->mutex->lock();
+		this->receivers.erase(r);
+		this->mutex->unlock();
+	});
+
+	r->track->onMessage([](rtc::binary var) {}, nullptr);
+
+	r->conn->setLocalDescription();
+
+	r->client = &client;
+
+	receivers.insert(r);
+}
+
+std::string ScreenStreamer::getOffer(WebSocket& client) {
+	std::shared_ptr<Receiver> currentReceiver;
+	this->getReceiver(client, currentReceiver);
+	if (currentReceiver != NULL) {
+		return currentReceiver.get()->offer;
+	}
+	else {
+		return "\"error\"";
+	}
+}
+
+void ScreenStreamer::getReceiver(const WebSocket& client, std::shared_ptr<Receiver>& recv) {
+	set<std::shared_ptr<Receiver>>::iterator itr;
+
+	for (itr = receivers.begin(); itr != receivers.end(); itr++) {
+		std::shared_ptr<Receiver> tmp = *itr;
+		Receiver rr = *tmp;
+		if (*(rr.client) == client) {
+			recv = *itr;
+			return;
+		}
+	}
+
+	recv = NULL;
 }
 
 int ScreenStreamer::startSteaming() {
@@ -138,7 +234,7 @@ int ScreenStreamer::startSteaming() {
 	//## Configure output server / parameters ##
 	//##########################################
 
-	rtc::InitLogger(rtc::LogLevel::Debug);
+	/*rtc::InitLogger(rtc::LogLevel::Debug);
 	pc = std::make_shared<rtc::PeerConnection>();
 
 	pc->onStateChange(
@@ -163,7 +259,7 @@ int ScreenStreamer::startSteaming() {
 	media.addSSRC(ssrc, "video-send");
 	track = pc->addTrack(media);
 
-	pc->setLocalDescription();
+	pc->setLocalDescription();*/
 
 	//##########################################
 	//## Configure output format && codecs    ##
@@ -262,9 +358,6 @@ int ScreenStreamer::startSteaming() {
 	shouldStream = true;
 	mutex->unlock();
 
-	Thread::sleep(30000);
-	std::cout << "Started sending..." << std::endl;
-
 	while (!task->isCancelled()) {
 		mutex->lock();
 
@@ -274,6 +367,12 @@ int ScreenStreamer::startSteaming() {
 		}
 		else {
 			mutex->unlock();
+		}
+
+		if (receivers.size() <= 0) {
+			mutex->unlock();
+			Thread::sleep(100); // wait 100 ms then check again
+			continue;
 		}
 
 		AVStream* in_stream, * out_stream;
@@ -367,9 +466,6 @@ int ScreenStreamer::startSteaming() {
 
 	avformat_close_input(&in_InputFormatContext);
 
-	/* close output */
-	if (out_OutputFormatContext && !(out_OutputFormat->flags & AVFMT_NOFILE))
-		avio_closep(&out_OutputFormatContext->pb);
 	avformat_free_context(out_OutputFormatContext);
 
 	if (ret < 0 && ret != AVERROR_EOF) {

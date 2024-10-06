@@ -155,14 +155,19 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 			streamingServerMutex.lock();
 			std::string isStreamingJSON = "{\"isStreaming\":";
 			if (isServerRunning) {
+				streamingServerMutex.unlock();
+				Event waitForOfferEvent;
+				screenStreamerTask->registerReceiver(ws, &waitForOfferEvent);
+				waitForOfferEvent.wait();
 				isStreamingJSON += "true, \"offer\": ";
-				isStreamingJSON += screenStreamerTask->getOffer();
+				isStreamingJSON += screenStreamerTask->getOffer(ws);
 			}
 			else {
+				streamingServerMutex.unlock();
 				isStreamingJSON += "false";
 			}
 			isStreamingJSON += "}";
-			streamingServerMutex.unlock();
+			
 			ws.sendFrame(isStreamingJSON.c_str(), isStreamingJSON.length());
 		}
 		else if (what == "ping") {
@@ -178,7 +183,10 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 				Object::Ptr answer = answerVar.extract<Object::Ptr>();
 				streamingServerMutex.lock();
 				if (isServerRunning) {
-					screenStreamerTask->setAnswer(answer);
+					int result = screenStreamerTask->setAnswer(ws, answer);
+					if (result < 0) {
+						app.logger().debug("Could not connect to the screen streamer");
+					}
 				}
 				streamingServerMutex.unlock();
 			}
@@ -291,19 +299,22 @@ bool handleStream(bool value, Application& app) {
 		taskManager->start(screenStreamerTask);
 
 		isServerRunning = true;
+		streamingServerMutex.unlock();
 	}
 	else if (!value && isServerRunning) {
 		// stop the server & cleanup
 
 		screenStreamerTask->cancel();
+		streamingServerMutex.unlock();
+		screenStreamerTask->getStopEvent()->wait();
 
 		isServerRunning = false;
 	}
 	else {
+		streamingServerMutex.unlock();
 		return false;
 	}
-	std::cout << "Done with the mutex to the server..." << std::endl;
-	streamingServerMutex.unlock();
+	
 
 	return true;
 }
