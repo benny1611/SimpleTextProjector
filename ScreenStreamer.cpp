@@ -114,7 +114,8 @@ void ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 	});
 
 	rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
-	media.addH264Codec(96);
+	//media.addH264Codec(96);
+	media.addVP9Codec(96);
 	media.setBitrate(3000);
 	media.addSSRC(ssrc, "video-send");
 
@@ -231,37 +232,6 @@ int ScreenStreamer::startSteaming() {
 	av_dump_format(in_InputFormatContext, 0, "desktop", 0);
 
 	//##########################################
-	//## Configure output server / parameters ##
-	//##########################################
-
-	/*rtc::InitLogger(rtc::LogLevel::Debug);
-	pc = std::make_shared<rtc::PeerConnection>();
-
-	pc->onStateChange(
-		[](rtc::PeerConnection::State state) { std::cout << "State: " << state << std::endl; });
-
-	pc->onGatheringStateChange([this](rtc::PeerConnection::GatheringState state) {
-		auto description = this->pc->localDescription();
-
-		Object* jsonMessage = new Object();
-		jsonMessage->set("type", description->typeString());
-		jsonMessage->set("sdp", std::string(description.value()));
-
-		std::ostringstream buffer;
-		Stringifier::stringify(*jsonMessage, buffer);
-
-		//std::cout << buffer.str() << std::endl;
-		this->offer = buffer.str();
-	});
-
-	rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
-	media.addH264Codec(96); // Must match the payload type of the external h264 RTP stream
-	media.addSSRC(ssrc, "video-send");
-	track = pc->addTrack(media);
-
-	pc->setLocalDescription();*/
-
-	//##########################################
 	//## Configure output format && codecs    ##
 	//##########################################
 
@@ -295,19 +265,27 @@ int ScreenStreamer::startSteaming() {
 	out_OutputFormatContext->oformat = out_OutputFormat;
 
 	// set codec parameters
-	out_Codec = (AVCodec*)avcodec_find_encoder(AV_CODEC_ID_H264);
+	out_Codec = (AVCodec*)avcodec_find_encoder(AV_CODEC_ID_VP9);
 	out_Stream = avformat_new_stream(out_OutputFormatContext, out_Codec);
 	out_CodecContext = avcodec_alloc_context3(out_Codec);
 
-	out_CodecContext->codec_tag = 0;
-	out_CodecContext->codec_id = AV_CODEC_ID_H264;
+	printf("FFmpeg version: %s\n", av_version_info());
+
+	if (!out_Codec) {
+		fprintf(stderr, "Could not find VP9 codec.\n");
+		return -1;
+	}
+
+	out_CodecContext->codec_id = AV_CODEC_ID_VP9;
 	out_CodecContext->codec_type = AVMEDIA_TYPE_VIDEO;
 	out_CodecContext->width = 1920;
 	out_CodecContext->height = 1080;
-	out_CodecContext->gop_size = 30;
+	out_CodecContext->bit_rate = 3000;
 	out_CodecContext->pix_fmt = AV_PIX_FMT_YUV420P;
 	out_CodecContext->framerate = serverFrameRate;
 	out_CodecContext->time_base = av_inv_q(serverFrameRate);
+	out_CodecContext->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
+	out_OutputFormatContext->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
 
 	if (out_OutputFormatContext->oformat->flags & AVFMT_GLOBALHEADER) {
 		out_CodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -319,16 +297,16 @@ int ScreenStreamer::startSteaming() {
 		return -1;
 	}
 	
-	av_dict_set(&out_codecOptions, "profile", "main", 0);
-	av_dict_set(&out_codecOptions, "preset", "ultrafast", 0);
-	av_dict_set(&out_codecOptions, "tune", "zerolatency", 0);
-	av_dict_set(&out_codecOptions, "pix_fmt", "yuv420p", 0);
+	av_dict_set(&out_codecOptions, "quality", "realtime", 0);
+	av_dict_set(&out_codecOptions, "speed", "6", 0);
 
 	ret = avcodec_open2(out_CodecContext, out_Codec, &out_codecOptions);
 	if (ret < 0) {
 		std::cout << "Could not open video encoder!" << std::endl;
 		return -1;
 	}
+
+	av_dict_free(&out_codecOptions);
 
 	out_Stream->codecpar->extradata = out_CodecContext->extradata;
 	out_Stream->codecpar->extradata_size = out_CodecContext->extradata_size;
@@ -379,8 +357,8 @@ int ScreenStreamer::startSteaming() {
 
 		ret = av_read_frame(in_InputFormatContext, pkt);
 		if (ret < 0) {
-			break;
 			mutex->unlock();
+			break;
 		}
 
 		in_stream = in_InputFormatContext->streams[pkt->stream_index];
@@ -428,6 +406,16 @@ int ScreenStreamer::startSteaming() {
 
 		ret = avcodec_receive_packet(out_CodecContext, outPacket);
 		if (ret < 0) {
+			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+				// EAGAIN: Need to feed more frames
+				mutex->unlock();
+				av_packet_unref(pkt);
+				av_packet_unref(outPacket);
+				av_frame_free(&frame);
+				av_frame_free(&out_frame);
+				av_packet_free(&outPacket);
+				continue;
+			}
 			std::cerr << "Error encoding packet for output" << std::endl;
 			mutex->unlock();
 			return -1;
@@ -463,8 +451,6 @@ int ScreenStreamer::startSteaming() {
 	av_write_trailer(out_OutputFormatContext);
 
 	av_packet_free(&pkt);
-
-	avformat_close_input(&in_InputFormatContext);
 
 	avformat_free_context(out_OutputFormatContext);
 

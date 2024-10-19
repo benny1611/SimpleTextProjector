@@ -713,6 +713,11 @@ typedef struct AVIndexEntry {
  * The video stream contains still images.
  */
 #define AV_DISPOSITION_STILL_IMAGE          (1 << 20)
+/**
+ * The video stream contains multiple layers, e.g. stereoscopic views (cf. H.264
+ * Annex G/H, or HEVC Annex F).
+ */
+#define AV_DISPOSITION_MULTILAYER           (1 << 21)
 
 /**
  * @return The AV_DISPOSITION_* flag corresponding to disp or a negative error
@@ -1079,11 +1084,37 @@ typedef struct AVStreamGroupTileGrid {
     int height;
 } AVStreamGroupTileGrid;
 
+/**
+ * AVStreamGroupLCEVC is meant to define the relation between video streams
+ * and a data stream containing LCEVC enhancement layer NALUs.
+ *
+ * No more than one stream of @ref AVCodecParameters.codec_type "codec_type"
+ * AVMEDIA_TYPE_DATA shall be present, and it must be of
+ * @ref AVCodecParameters.codec_id "codec_id" AV_CODEC_ID_LCEVC.
+ */
+typedef struct AVStreamGroupLCEVC {
+    const AVClass *av_class;
+
+    /**
+     * Index of the LCEVC data stream in AVStreamGroup.
+     */
+    unsigned int lcevc_index;
+    /**
+     * Width of the final stream for presentation.
+     */
+    int width;
+    /**
+     * Height of the final image for presentation.
+     */
+    int height;
+} AVStreamGroupLCEVC;
+
 enum AVStreamGroupParamsType {
     AV_STREAM_GROUP_PARAMS_NONE,
     AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT,
     AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION,
     AV_STREAM_GROUP_PARAMS_TILE_GRID,
+    AV_STREAM_GROUP_PARAMS_LCEVC,
 };
 
 struct AVIAMFAudioElement;
@@ -1125,6 +1156,7 @@ typedef struct AVStreamGroup {
         struct AVIAMFAudioElement *iamf_audio_element;
         struct AVIAMFMixPresentation *iamf_mix_presentation;
         struct AVStreamGroupTileGrid *tile_grid;
+        struct AVStreamGroupLCEVC *lcevc;
     } params;
 
     /**
@@ -3042,6 +3074,7 @@ int avformat_match_stream_specifier(AVFormatContext *s, AVStream *st,
 
 int avformat_queue_attached_pictures(AVFormatContext *s);
 
+#if FF_API_INTERNAL_TIMING
 enum AVTimebaseSource {
     AVFMT_TBCF_AUTO = -1,
     AVFMT_TBCF_DECODER,
@@ -3052,25 +3085,20 @@ enum AVTimebaseSource {
 };
 
 /**
- * Transfer internal timing information from one stream to another.
- *
- * This function is useful when doing stream copy.
- *
- * @param ofmt     target output format for ost
- * @param ost      output stream which needs timings copy and adjustments
- * @param ist      reference input stream to copy timings from
- * @param copy_tb  define from where the stream codec timebase needs to be imported
+ * @deprecated do not call this function
  */
+attribute_deprecated
 int avformat_transfer_internal_stream_timing_info(const AVOutputFormat *ofmt,
                                                   AVStream *ost, const AVStream *ist,
                                                   enum AVTimebaseSource copy_tb);
 
 /**
- * Get the internal codec timebase from a stream.
- *
- * @param st  input stream to extract the timebase from
+ * @deprecated do not call this function
  */
+attribute_deprecated
 AVRational av_stream_get_codec_timebase(const AVStream *st);
+#endif
+
 
 /**
  * @}
