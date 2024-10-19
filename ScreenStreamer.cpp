@@ -6,11 +6,12 @@ using Poco::JSON::Stringifier;
 using Poco::Dynamic::Var;
 
 /* initialize the resources*/
-ScreenStreamer::ScreenStreamer(Task* tsk, Event* stop_event, Mutex* mtx) {
+ScreenStreamer::ScreenStreamer(Task* tsk, Event* stop_event, Mutex* mtx, Logger* logger) {
 	avdevice_register_all();
 	task = tsk;
 	stopEvent = stop_event;
 	mutex = mtx;
+	appLogger = logger;
 }
 
 ScreenStreamer::~ScreenStreamer() {}
@@ -59,7 +60,7 @@ int ScreenStreamer::setAnswer(WebSocket& client, Object::Ptr answerJSON) {
 		std::string sdp = answerJSON->getValue<std::string>("sdp");
 		std::string type = answerJSON->getValue<std::string>("type");
 
-		std::cout << "Type: " << type << std::endl << "sdp: " << sdp << std::endl;
+		appLogger->information("Type: %s, spd: %s", type, sdp);
 
 		rtc::Description answer(sdp, type);
 
@@ -71,7 +72,7 @@ int ScreenStreamer::setAnswer(WebSocket& client, Object::Ptr answerJSON) {
 	}
 	catch (Exception ex) {
 		std::string error = "Something happened when trying to set the answer: " + ex.message();
-		std::cout << error << std::endl;
+		appLogger->error(error);
 		return -1;
 	}
 }
@@ -80,7 +81,7 @@ void ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 	std::shared_ptr<Receiver> r = std::make_shared<Receiver>();
 	r->conn = std::make_shared<rtc::PeerConnection>();
 	r->conn->onStateChange([this, client](rtc::PeerConnection::State state) {
-		std::cout << "State: " << state << std::endl;
+		this->appLogger->information("State: %s", state);
 		std::shared_ptr<Receiver> currentReceiver;
 		this->getReceiver(client, currentReceiver);
 		if (state == rtc::PeerConnection::State::Connected) {
@@ -92,7 +93,7 @@ void ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 	});
 
 	r->conn->onGatheringStateChange([r, this, client, offerEvent](rtc::PeerConnection::GatheringState state) {
-		std::cout << "Gathering State: " << state << std::endl;
+		this->appLogger->information("Gathering State: %s", state);
 		if (state == rtc::PeerConnection::GatheringState::Complete) {
 			auto description = r->conn->localDescription();
 			Object* jsonMessage = new Object();
@@ -114,7 +115,6 @@ void ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 	});
 
 	rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
-	//media.addH264Codec(96);
 	media.addVP9Codec(96);
 	media.setBitrate(3000);
 	media.addSSRC(ssrc, "video-send");
@@ -188,44 +188,44 @@ int ScreenStreamer::startSteaming() {
 	ret = av_dict_set(&in_InputFormatOptions, "probesize", "100M", 0);
 	ret = av_dict_set(&in_InputFormatOptions, "draw_mouse", "0", 0);
 	if (ret < 0) {
-		cout << "error in setting dictionary value" << endl;
+		appLogger->error("error in setting dictionary value");
 		return -1;
 	}
 
 	ret = avformat_open_input(&in_InputFormatContext, "title=SimpleTextProjector", in_InputFormat, &in_InputFormatOptions); // second parameter is the -i parameter of ffmpeg, use title=window_title to specify the window later
 
 	if (ret != 0) {
-		cout << "error: could not open gdigrab" << endl;
+		appLogger->error("error: could not open gdigrab");
 		return -1;
 	}
 
 	ret = avformat_find_stream_info(in_InputFormatContext, &in_InputFormatOptions);
 	if (ret < 0) {
-		cout << "error in avformat_find_stream_info" << endl;
+		appLogger->error("error in avformat_find_stream_info");
 		return -1;
 	}
 
 	in_codec = (AVCodec*)avcodec_find_decoder(in_InputFormatContext->streams[0]->codecpar->codec_id);
 	if (in_codec == NULL) {
-		fprintf(stderr, "Error occurred getting the in_codec\n");
+		appLogger->error("Error occurred getting the in_codec");
 		return -1;
 	}
 
 	in_codec_ctx = avcodec_alloc_context3(in_codec);
 	if (in_codec_ctx == NULL) {
-		fprintf(stderr, "Error occurred when getting in_codec_ctx\n");
+		appLogger->error("Error occurred when getting in_codec_ctx");
 		return -1;
 	}
 
 	ret = avcodec_parameters_to_context(in_codec_ctx, in_InputFormatContext->streams[0]->codecpar);
 	if (ret < 0) {
-		fprintf(stderr, "Error occurred when avcodec_parameters_to_context\n");
+		appLogger->error("Error occurred when avcodec_parameters_to_context");
 		return -1;
 	}
 
 	ret = avcodec_open2(in_codec_ctx, in_codec, NULL);
 	if (ret < 0) {
-		fprintf(stderr, "Error occurred when avcodec_open2\n");
+		appLogger->error("Error occurred when avcodec_open2");
 		return -1;
 	}
 	
@@ -245,7 +245,7 @@ int ScreenStreamer::startSteaming() {
 
 	ret = avformat_alloc_output_context2(&out_OutputFormatContext, nullptr, "rtp", nullptr);
 	if (ret < 0) {
-		std::cout << "Could not allocate output format context!" << std::endl;
+		appLogger->error("Could not allocate output format context!");
 		return -1;
 	}
 
@@ -254,7 +254,7 @@ int ScreenStreamer::startSteaming() {
 	AVIOContext* avio_ctx = avio_alloc_context(avio_ctx_buffer, 4096, 1, this, nullptr, &custom_write, nullptr);
 
 	if (!avio_ctx) {
-		std::cerr << "Could not allocate AVIO context" << std::endl;
+		appLogger->error("Could not allocate AVIO context");
 		return 1;
 	}
 
@@ -269,10 +269,10 @@ int ScreenStreamer::startSteaming() {
 	out_Stream = avformat_new_stream(out_OutputFormatContext, out_Codec);
 	out_CodecContext = avcodec_alloc_context3(out_Codec);
 
-	printf("FFmpeg version: %s\n", av_version_info());
+	appLogger->information("FFmpeg version: %s", av_version_info());
 
 	if (!out_Codec) {
-		fprintf(stderr, "Could not find VP9 codec.\n");
+		appLogger->error("Could not find VP9 codec.");
 		return -1;
 	}
 
@@ -293,7 +293,7 @@ int ScreenStreamer::startSteaming() {
 
 	ret = avcodec_parameters_from_context(out_Stream->codecpar, out_CodecContext);
 	if (ret < 0) {
-		std::cout << "Could not initialize stream codec parameters!" << std::endl;
+		appLogger->error("Could not initialize stream codec parameters!");
 		return -1;
 	}
 	
@@ -302,7 +302,7 @@ int ScreenStreamer::startSteaming() {
 
 	ret = avcodec_open2(out_CodecContext, out_Codec, &out_codecOptions);
 	if (ret < 0) {
-		std::cout << "Could not open video encoder!" << std::endl;
+		appLogger->error("Could not open video encoder!");
 		return -1;
 	}
 
@@ -315,7 +315,7 @@ int ScreenStreamer::startSteaming() {
 
 	ret = avformat_write_header(out_OutputFormatContext, NULL);
 	if (ret < 0) {
-		fprintf(stderr, "Error occurred when writing header\n");
+		appLogger->error("Error occurred when writing header");
 		return -1;
 	}
 
@@ -328,7 +328,7 @@ int ScreenStreamer::startSteaming() {
 	
 	AVPacket* pkt = av_packet_alloc();
 	if (!pkt) {
-		fprintf(stderr, "Could not allocate AVPacket\n");
+		appLogger->error("Could not allocate AVPacket");
 		return -1;
 	}
 	
@@ -348,7 +348,6 @@ int ScreenStreamer::startSteaming() {
 		}
 
 		if (receivers.size() <= 0) {
-			mutex->unlock();
 			Thread::sleep(100); // wait 100 ms then check again
 			continue;
 		}
@@ -357,7 +356,7 @@ int ScreenStreamer::startSteaming() {
 
 		ret = av_read_frame(in_InputFormatContext, pkt);
 		if (ret < 0) {
-			mutex->unlock();
+			appLogger->error("Could not read frame");
 			break;
 		}
 
@@ -376,20 +375,18 @@ int ScreenStreamer::startSteaming() {
 
 		ret = avcodec_send_packet(in_codec_ctx, pkt);
 		if (ret < 0) {
-			mutex->unlock();
-			std::cerr << "Error sending packet to codec" << std::endl;
+			appLogger->error("Error sending packet to codec");
 			return -1;
 		}
 
 		ret = avcodec_receive_frame(in_codec_ctx, frame);
 
 		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-			mutex->unlock();
-			break;
+			appLogger->error("Error: AVERROR(EAGAIN) or AVERROR_EOF when receiving frames from desktop capture");
+			continue;
 		}
 		else if (ret < 0) {
-			std::cerr << "Error receiving frame from codec" << std::endl;
-			mutex->unlock();
+			appLogger->error("Error receiving frame from codec");
 			return -1;
 		}
 
@@ -399,8 +396,7 @@ int ScreenStreamer::startSteaming() {
 
 		ret = avcodec_send_frame(out_CodecContext, out_frame);
 		if (ret < 0) {
-			std::cerr << "Error encoding frame for output" << std::endl;
-			mutex->unlock();
+			appLogger->error("Error encoding frame for output");
 			return -1;
 		}
 
@@ -408,7 +404,6 @@ int ScreenStreamer::startSteaming() {
 		if (ret < 0) {
 			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
 				// EAGAIN: Need to feed more frames
-				mutex->unlock();
 				av_packet_unref(pkt);
 				av_packet_unref(outPacket);
 				av_frame_free(&frame);
@@ -416,8 +411,7 @@ int ScreenStreamer::startSteaming() {
 				av_packet_free(&outPacket);
 				continue;
 			}
-			std::cerr << "Error encoding packet for output" << std::endl;
-			mutex->unlock();
+			appLogger->error("Error encoding packet for output");
 			return -1;
 		}
 
@@ -433,14 +427,12 @@ int ScreenStreamer::startSteaming() {
 		av_packet_free(&outPacket);
 
 		if (ret < 0) {
-			fprintf(stderr, "Error muxing packet\n");
-			mutex->unlock();
+			appLogger->error("Error muxing packet");
 			break;
 		}
-		//mutex->unlock();
 	}
 
-	std::cout << "Ending server" << std::endl;
+	appLogger->information("Ending server");
 	
 	//##########################
 	//## free the used memory ##
@@ -455,24 +447,24 @@ int ScreenStreamer::startSteaming() {
 	avformat_free_context(out_OutputFormatContext);
 
 	if (ret < 0 && ret != AVERROR_EOF) {
-		fprintf(stderr, "Error occurred: %s\n", "idk");
+		appLogger->error("Unknown error occurred");
 		return -1;
 	}
 
 	/* close input*/
 	avformat_close_input(&in_InputFormatContext);
 	if (!in_InputFormatContext) {
-		cout << "\nfile closed sucessfully";
+		appLogger->information("Screen capture closed sucessfully");
 	} else {
-		cout << "\nunable to close the file";
+		appLogger->error("Unable to close the file");
 		return -1;
 	}
 
 	avformat_free_context(in_InputFormatContext);
 	if (!in_InputFormatContext) {
-		cout << "\navformat free successfully";
+		appLogger->information("avformat free successfully");
 	} else {
-		cout << "\nunable to free avformat context";
+		appLogger->error("Unable to free avformat context");
 		return -1;
 	}
 

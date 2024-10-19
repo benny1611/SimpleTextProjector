@@ -291,11 +291,10 @@ int handleFontSize(float fontSizeValue, Application& app) {
 
 bool handleStream(bool value, Application& app) {
 	streamingServerMutex.lock();
-	std::cout << "Got the mutex to the server..." << std::endl;
 	if (value && !isServerRunning) {
 		// start the server
 
-		screenStreamerTask = new ScreenStreamerTask(&streamingServerMutex, 0, 0);
+		screenStreamerTask = new ScreenStreamerTask(&streamingServerMutex, &app.logger(), 0, 0);
 		taskManager->start(screenStreamerTask);
 
 		isServerRunning = true;

@@ -1,8 +1,8 @@
 #pragma once
 #include "ScreenStreamerTask.h"
 
-ScreenStreamerTask::ScreenStreamerTask(Mutex* mutex, int argc, char** argv) : Task("ScreenStreamerTask") {
-	this->screenStreamer = new ScreenStreamer(this, &stopEvent, mutex);
+ScreenStreamerTask::ScreenStreamerTask(Mutex* mutex, Logger* appLogger, int argc, char** argv) : Task("ScreenStreamerTask") {
+	this->screenStreamer = new ScreenStreamer(this, &stopEvent, mutex, appLogger);
 	this->mtx = mutex;
 }
 

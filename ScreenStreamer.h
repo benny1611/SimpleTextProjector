@@ -58,6 +58,7 @@ extern "C"
 #include "Poco/Mutex.h"
 #include "Poco/Thread.h"
 #include "Poco/Exception.h"
+#include "Poco/Logger.h"
 #include "Poco/Net/WebSocket.h"
 
 using Poco::Task;
@@ -65,6 +66,7 @@ using Poco::Event;
 using Poco::Mutex;
 using Poco::Thread;
 using Poco::Exception;
+using Poco::Logger;
 using Poco::JSON::Object;
 using Poco::Net::WebSocket;
 
@@ -84,11 +86,12 @@ private:
 	Task* task;
 	Mutex* mutex;
 	Event* stopEvent;
+	Logger* appLogger;
 	std::set <std::shared_ptr<Receiver>> receivers;
 	void getReceiver(const WebSocket& client, std::shared_ptr<Receiver>& recv);
 public:
 
-	ScreenStreamer(Task* tsk, Event *stop_event, Mutex* mtx);
+	ScreenStreamer(Task* tsk, Event *stop_event, Mutex* mtx, Logger* logger);
 	~ScreenStreamer();
 
 	int startSteaming();
