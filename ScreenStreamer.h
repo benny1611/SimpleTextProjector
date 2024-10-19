@@ -70,8 +70,7 @@ using Poco::Logger;
 using Poco::JSON::Object;
 using Poco::Net::WebSocket;
 
-class Receiver {
-public:
+struct Receiver {
 	std::shared_ptr<rtc::PeerConnection> conn;
 	std::shared_ptr<rtc::Track> track;
 	WebSocket* client;
@@ -89,6 +88,8 @@ private:
 	Logger* appLogger;
 	std::set <std::shared_ptr<Receiver>> receivers;
 	void getReceiver(const WebSocket& client, std::shared_ptr<Receiver>& recv);
+	std::string peerStateToString(rtc::PeerConnection::State state);
+	std::string gatheringStateToString(rtc::PeerConnection::GatheringState state);
 public:
 
 	ScreenStreamer(Task* tsk, Event *stop_event, Mutex* mtx, Logger* logger);

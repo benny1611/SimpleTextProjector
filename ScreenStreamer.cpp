@@ -20,6 +20,38 @@ void ScreenStreamer::stopStreaming() {
 	shouldStream = false;
 }
 
+std::string ScreenStreamer::peerStateToString(rtc::PeerConnection::State state) {
+	switch (state) {
+	case rtc::PeerConnection::State::New:
+		return "New";
+	case rtc::PeerConnection::State::Connecting:
+		return "Connecting";
+	case rtc::PeerConnection::State::Connected:
+		return "Connected";
+	case rtc::PeerConnection::State::Disconnected:
+		return "Disconnected";
+	case rtc::PeerConnection::State::Failed:
+		return "Failed";
+	case rtc::PeerConnection::State::Closed:
+		return "Closed";
+	default:
+		return "Unknown";
+	}
+}
+
+std::string ScreenStreamer::gatheringStateToString(rtc::PeerConnection::GatheringState state) {
+	switch (state) {
+	case rtc::PeerConnection::GatheringState::New:
+		return "New";
+	case rtc::PeerConnection::GatheringState::InProgress:
+		return "In Progress";
+	case rtc::PeerConnection::GatheringState::Complete:
+		return "Complete";
+	default:
+		return "Unknown";
+	}
+}
+
 bool ScreenStreamer::isStreaming() {
 	bool result;
 	mutex->lock();
@@ -81,7 +113,7 @@ void ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 	std::shared_ptr<Receiver> r = std::make_shared<Receiver>();
 	r->conn = std::make_shared<rtc::PeerConnection>();
 	r->conn->onStateChange([this, client](rtc::PeerConnection::State state) {
-		this->appLogger->information("State: %s", state);
+		this->appLogger->information("State: %s", this->peerStateToString(state));
 		std::shared_ptr<Receiver> currentReceiver;
 		this->getReceiver(client, currentReceiver);
 		if (state == rtc::PeerConnection::State::Connected) {
@@ -93,7 +125,7 @@ void ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 	});
 
 	r->conn->onGatheringStateChange([r, this, client, offerEvent](rtc::PeerConnection::GatheringState state) {
-		this->appLogger->information("Gathering State: %s", state);
+		this->appLogger->information("Gathering State: %s", this->gatheringStateToString(state));
 		if (state == rtc::PeerConnection::GatheringState::Complete) {
 			auto description = r->conn->localDescription();
 			Object* jsonMessage = new Object();
@@ -189,45 +221,67 @@ int ScreenStreamer::startSteaming() {
 	ret = av_dict_set(&in_InputFormatOptions, "draw_mouse", "0", 0);
 	if (ret < 0) {
 		appLogger->error("error in setting dictionary value");
-		return -1;
+		goto input_error;
 	}
 
 	ret = avformat_open_input(&in_InputFormatContext, "title=SimpleTextProjector", in_InputFormat, &in_InputFormatOptions); // second parameter is the -i parameter of ffmpeg, use title=window_title to specify the window later
 
 	if (ret != 0) {
-		appLogger->error("error: could not open gdigrab");
-		return -1;
+		appLogger->error("error: could not open screen capture");
+		goto input_error;
 	}
 
 	ret = avformat_find_stream_info(in_InputFormatContext, &in_InputFormatOptions);
 	if (ret < 0) {
 		appLogger->error("error in avformat_find_stream_info");
-		return -1;
+		goto input_error;
 	}
 
 	in_codec = (AVCodec*)avcodec_find_decoder(in_InputFormatContext->streams[0]->codecpar->codec_id);
 	if (in_codec == NULL) {
 		appLogger->error("Error occurred getting the in_codec");
-		return -1;
+		goto input_error;
 	}
 
 	in_codec_ctx = avcodec_alloc_context3(in_codec);
 	if (in_codec_ctx == NULL) {
 		appLogger->error("Error occurred when getting in_codec_ctx");
-		return -1;
+		goto input_error;
 	}
 
 	ret = avcodec_parameters_to_context(in_codec_ctx, in_InputFormatContext->streams[0]->codecpar);
 	if (ret < 0) {
 		appLogger->error("Error occurred when avcodec_parameters_to_context");
-		return -1;
+		goto input_error;
 	}
 
 	ret = avcodec_open2(in_codec_ctx, in_codec, NULL);
 	if (ret < 0) {
 		appLogger->error("Error occurred when avcodec_open2");
+		goto input_error;
+	}
+
+	if (false) {
+input_error:
+		avformat_close_input(&in_InputFormatContext);
+		if (in_InputFormatContext == NULL) {
+			appLogger->information("Input format context closed successuflly");
+		} else {
+			appLogger->error("Input format context wasn't closed properly");
+		}
+
+		avformat_free_context(in_InputFormatContext);
+		
+		avcodec_free_context(&in_codec_ctx);
+		if (in_codec_ctx == NULL) {
+			appLogger->information("Input codec context was closed successfully");
+		} else {
+			appLogger->error("Input codec context wasn't closed properly");
+		}
+
 		return -1;
 	}
+
 	
 	av_dump_format(in_InputFormatContext, 0, "desktop", 0);
 
@@ -242,20 +296,22 @@ int ScreenStreamer::startSteaming() {
 	AVRational serverFrameRate = { 30, 1 };
 	AVDictionary* out_codecOptions = nullptr;
 	const AVOutputFormat* out_OutputFormat = av_guess_format("rtp", NULL, NULL);
+	AVIOContext* avio_ctx;
+	unsigned char* avio_ctx_buffer;
 
 	ret = avformat_alloc_output_context2(&out_OutputFormatContext, nullptr, "rtp", nullptr);
 	if (ret < 0) {
 		appLogger->error("Could not allocate output format context!");
-		return -1;
+		goto output_error;
 	}
 
 	// Allocate custom AVIO context (for intercepting writes)
-	unsigned char* avio_ctx_buffer = (unsigned char*)av_malloc(4096);  // Buffer for AVIO context
-	AVIOContext* avio_ctx = avio_alloc_context(avio_ctx_buffer, 4096, 1, this, nullptr, &custom_write, nullptr);
+	avio_ctx_buffer = (unsigned char*)av_malloc(4096);  // Buffer for AVIO context
+	avio_ctx = avio_alloc_context(avio_ctx_buffer, 4096, 1, this, nullptr, &custom_write, nullptr);
 
 	if (!avio_ctx) {
 		appLogger->error("Could not allocate AVIO context");
-		return 1;
+		goto output_error;
 	}
 
 	// Replace the default AVIO context with our custom one
@@ -269,11 +325,11 @@ int ScreenStreamer::startSteaming() {
 	out_Stream = avformat_new_stream(out_OutputFormatContext, out_Codec);
 	out_CodecContext = avcodec_alloc_context3(out_Codec);
 
-	appLogger->information("FFmpeg version: %s", av_version_info());
+	appLogger->information("FFmpeg version: %s", std::string(av_version_info()));
 
 	if (!out_Codec) {
 		appLogger->error("Could not find VP9 codec.");
-		return -1;
+		goto output_error;
 	}
 
 	out_CodecContext->codec_id = AV_CODEC_ID_VP9;
@@ -294,7 +350,7 @@ int ScreenStreamer::startSteaming() {
 	ret = avcodec_parameters_from_context(out_Stream->codecpar, out_CodecContext);
 	if (ret < 0) {
 		appLogger->error("Could not initialize stream codec parameters!");
-		return -1;
+		goto output_error;
 	}
 	
 	av_dict_set(&out_codecOptions, "quality", "realtime", 0);
@@ -303,7 +359,7 @@ int ScreenStreamer::startSteaming() {
 	ret = avcodec_open2(out_CodecContext, out_Codec, &out_codecOptions);
 	if (ret < 0) {
 		appLogger->error("Could not open video encoder!");
-		return -1;
+		goto output_error;
 	}
 
 	av_dict_free(&out_codecOptions);
@@ -316,6 +372,46 @@ int ScreenStreamer::startSteaming() {
 	ret = avformat_write_header(out_OutputFormatContext, NULL);
 	if (ret < 0) {
 		appLogger->error("Error occurred when writing header");
+		goto output_error;
+	}
+
+	if (false) {
+output_error:
+		// close input
+		avformat_close_input(&in_InputFormatContext);
+		if (in_InputFormatContext == NULL) {
+			appLogger->information("Input format context closed successuflly");
+		}
+		else {
+			appLogger->error("Input format context wasn't closed properly");
+		}
+
+		avformat_free_context(in_InputFormatContext);
+
+		avcodec_free_context(&in_codec_ctx);
+		if (in_codec_ctx == NULL) {
+			appLogger->information("Input codec context was closed successfully");
+		}
+		else {
+			appLogger->error("Input codec context wasn't closed properly");
+		}
+
+		// close output
+		avformat_free_context(out_OutputFormatContext);
+		avio_context_free(&avio_ctx);
+		if (avio_ctx == NULL) {
+			appLogger->information("AVIO context closed successfully");
+		} else {
+			appLogger->error("AVIO context wasn't closed properly");
+		}
+
+		avcodec_free_context(&out_CodecContext);
+		if (out_CodecContext == NULL) {
+			appLogger->information("Output context closed sucessfully");
+		} else {
+			appLogger->error("Output context wasn't closed properly");
+		}
+
 		return -1;
 	}
 
@@ -324,12 +420,21 @@ int ScreenStreamer::startSteaming() {
 	//## Send frames from input (screen) to the output server ##
 	//##########################################################
 
+	bool errorDuringServing = false;
+	AVPacket* pkt;
 	SwsContext* swsContext = sws_getContext(in_codec_ctx->width, in_codec_ctx->height, in_codec_ctx->pix_fmt, out_CodecContext->width, out_CodecContext->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, nullptr, nullptr, nullptr);
 	
-	AVPacket* pkt = av_packet_alloc();
+	if (swsContext != NULL) {
+		appLogger->information("SWS context successfully created");
+	} else {
+		appLogger->error("Could not create SWS context");
+		goto end_server;
+	}
+
+	pkt = av_packet_alloc();
 	if (!pkt) {
 		appLogger->error("Could not allocate AVPacket");
-		return -1;
+		goto end_server;
 	}
 	
 	mutex->lock();
@@ -357,6 +462,7 @@ int ScreenStreamer::startSteaming() {
 		ret = av_read_frame(in_InputFormatContext, pkt);
 		if (ret < 0) {
 			appLogger->error("Could not read frame");
+			errorDuringServing = true;
 			break;
 		}
 
@@ -376,7 +482,8 @@ int ScreenStreamer::startSteaming() {
 		ret = avcodec_send_packet(in_codec_ctx, pkt);
 		if (ret < 0) {
 			appLogger->error("Error sending packet to codec");
-			return -1;
+			errorDuringServing = true;
+			break;
 		}
 
 		ret = avcodec_receive_frame(in_codec_ctx, frame);
@@ -387,7 +494,9 @@ int ScreenStreamer::startSteaming() {
 		}
 		else if (ret < 0) {
 			appLogger->error("Error receiving frame from codec");
-			return -1;
+			errorDuringServing = true;
+			av_frame_free(&frame);
+			break;
 		}
 
 		AVPacket* outPacket = av_packet_alloc();
@@ -397,22 +506,27 @@ int ScreenStreamer::startSteaming() {
 		ret = avcodec_send_frame(out_CodecContext, out_frame);
 		if (ret < 0) {
 			appLogger->error("Error encoding frame for output");
-			return -1;
+			errorDuringServing = true;
+			av_frame_free(&frame);
+			av_frame_free(&out_frame);
+			break;
 		}
 
 		ret = avcodec_receive_packet(out_CodecContext, outPacket);
 		if (ret < 0) {
+			av_packet_unref(pkt);
+			av_packet_unref(outPacket);
+			av_frame_free(&frame);
+			av_frame_free(&out_frame);
+			av_packet_free(&outPacket);
 			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
 				// EAGAIN: Need to feed more frames
-				av_packet_unref(pkt);
-				av_packet_unref(outPacket);
-				av_frame_free(&frame);
-				av_frame_free(&out_frame);
-				av_packet_free(&outPacket);
 				continue;
+			} else {
+				appLogger->error("Error encoding packet for output");
+				errorDuringServing = true;
+				break;
 			}
-			appLogger->error("Error encoding packet for output");
-			return -1;
 		}
 
 		outPacket->dts = pkt->dts;
@@ -428,9 +542,12 @@ int ScreenStreamer::startSteaming() {
 
 		if (ret < 0) {
 			appLogger->error("Error muxing packet");
+			errorDuringServing = true;
 			break;
 		}
 	}
+
+end_server:
 
 	appLogger->information("Ending server");
 	
@@ -439,36 +556,56 @@ int ScreenStreamer::startSteaming() {
 	//##########################
 
 	sws_freeContext(swsContext);
-
-	av_write_trailer(out_OutputFormatContext);
-
-	av_packet_free(&pkt);
-
-	avformat_free_context(out_OutputFormatContext);
-
-	if (ret < 0 && ret != AVERROR_EOF) {
-		appLogger->error("Unknown error occurred");
-		return -1;
+	if (swsContext == NULL) {
+		appLogger->information("SWS context closed successfully");
+	} else {
+		appLogger->information("SWS context wasn't closed properly");
 	}
 
-	/* close input*/
+	av_packet_free(&pkt);
+	
+
+	// close input
 	avformat_close_input(&in_InputFormatContext);
-	if (!in_InputFormatContext) {
-		appLogger->information("Screen capture closed sucessfully");
-	} else {
-		appLogger->error("Unable to close the file");
-		return -1;
+	if (in_InputFormatContext == NULL) {
+		appLogger->information("Input format context closed successuflly");
+	}
+	else {
+		appLogger->error("Input format context wasn't closed properly");
 	}
 
 	avformat_free_context(in_InputFormatContext);
-	if (!in_InputFormatContext) {
-		appLogger->information("avformat free successfully");
-	} else {
-		appLogger->error("Unable to free avformat context");
-		return -1;
+
+	avcodec_free_context(&in_codec_ctx);
+	if (in_codec_ctx == NULL) {
+		appLogger->information("Input codec context was closed successfully");
+	}
+	else {
+		appLogger->error("Input codec context wasn't closed properly");
+	}
+
+	// close output
+	avformat_free_context(out_OutputFormatContext);
+	avio_context_free(&avio_ctx);
+	if (avio_ctx == NULL) {
+		appLogger->information("AVIO context closed successfully");
+	}
+	else {
+		appLogger->error("AVIO context wasn't closed properly");
+	}
+
+	avcodec_free_context(&out_CodecContext);
+	if (out_CodecContext == NULL) {
+		appLogger->information("Output context closed sucessfully");
+	}
+	else {
+		appLogger->error("Output context wasn't closed properly");
 	}
 
 	stopEvent->set();
-
-	return 0;
+	if (errorDuringServing) {
+		return 0;
+	} else {
+		return -1;
+	}
 }
