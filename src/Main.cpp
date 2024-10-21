@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
 
     std::string fontPathCopy = fontPath;
 
-    RAYLIB_H::Font font = LoadFontEx(fontPath.c_str(), 300, 0, 512);
+    RAYLIB_H::Font font = LoadFontEx(fontPath.c_str(), 256, 0, 512);
     font.baseSize = 100;
 
     while (!WindowShouldClose()) {
@@ -130,21 +130,13 @@ int main(int argc, char** argv) {
         if (fontPath != fontPathCopy) {
             fontPathCopy = fontPath;
             UnloadFont(font);
-            font = LoadFontEx(fontPath.c_str(), 300, 0, 512);
+            font = LoadFontEx(fontPath.c_str(), 256, 0, 512);
             font.baseSize = 100;
         }
         BeginDrawing();
         ClearBackground(BLACK);
-        Vector2 textMeasurement = MeasureTextEx(font, text, fontSize, 0);
         int screenWidth = GetScreenWidth();
         int screenHeight = GetScreenHeight();
-        Vector2 vec2;
-        vec2.x = (screenWidth/2) - (textMeasurement.x/2);
-        vec2.y = (screenHeight/2) - (textMeasurement.y/2);
-        Vector2 center;
-        center.x = (screenWidth / 2);
-        center.y = (screenHeight / 2);
-        
         Rectangle rec;
         rec.x = 0;
         rec.y = 0;
@@ -156,6 +148,9 @@ int main(int argc, char** argv) {
         textColor.b = textColorB;
         textColor.a = textColorA;
         DrawTextCenteredInARectangle(font, rec, 0, fontSize, true, textColor);
+        DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, WHITE);
+        DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, WHITE);
+
         
         EndDrawing();
         textMutex.unlock();
@@ -282,25 +277,41 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
 
                 if (i >= length - 1) {
                     doneAdjustingTextWidth = true;
-                    linesWidthList.push_back(sentenceWidth);
+                    if (sentenceWidth > 0) {
+                        linesWidthList.push_back(sentenceWidth);
+                    }
                 }
             }
         }
         // adjust text height to fit to the rectangle
+        float singleLineHeight;
+        if (linesWidthList.size() > 1) {
+            singleLineHeight = ((float)font.baseSize * scaleFactor) * 1.5;
+        } else {
+            singleLineHeight = ((float)font.baseSize * scaleFactor);
+        }
+        bool endsWithNewLine = false;
         float textHeight;
         if (doneAdjustingTextWidth && !doneAdjustingTextHeight) {
-            int nonZeroLines = 0;
             for (int i = 0; i < length; i++) {
                 int codepointByteCount = 0;
-                int codepoint = GetCodepoint(&resultText[i], &codepointByteCount);
+                int codepoint = GetCodepoint(&resultText[i], &codepointByteCount);  
                 if (codepoint == '\n') {
                     newLineIndexList.push_back(i);
                 }
-                if (codepoint == '\n' && i != length - 1) {
-                    nonZeroLines++;
+                if (codepoint == '\n' && i == length - 1) {
+                    endsWithNewLine = true;
                 }
             }
-            textHeight = font.baseSize * nonZeroLines * scaleFactor + ((font.baseSize / 2) * (nonZeroLines - 1) * scaleFactor);
+            if (endsWithNewLine) {
+                if (newLineIndexList.size() <= 1) {
+                    textHeight = singleLineHeight;
+                } else {
+                    textHeight = singleLineHeight * (newLineIndexList.size() - 1);
+                }
+            } else {
+                textHeight = singleLineHeight * (newLineIndexList.size() + 1);
+            }
             if (textHeight > rec.height) { // height too big, make font size smaller, then redo width fitting
                 desiredFontSize -= 5;
                 if (desiredFontSize <= 0) {
@@ -338,8 +349,9 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
                 if ((codepoint != ' ') && (codepoint != '\t') && codepoint != '\n') {
                     Vector2 vec2;
                     vec2.x = rec.x + offsetX + (rec.width / 2) - (lineWidth / 2);
-                    vec2.y = rec.y - offsetY + (rec.height / 2) - (font.baseSize / 2);
+                    vec2.y = rec.y - offsetY + (rec.height / 2) - singleLineHeight;
                     DrawTextCodepoint(font, codepoint, vec2, desiredFontSize, textColor);
+                    //DrawLine(vec2.x, vec2.y - singleLineHeight, vec2.x, vec2.y, BLUE);
                 }
                 float glyphWidth = 0;
                 int index = GetGlyphIndex(font, codepoint);
@@ -357,7 +369,7 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
                 i += (codepointByteCount - 1);
 
                 if (endLineIndex == i) {
-                    offsetY -= ((font.baseSize * scaleFactor) + ((font.baseSize / 2) * scaleFactor));
+                    offsetY -= singleLineHeight * 1.5f;
                     offsetX = 0.0f;
                     std::advance(lineWidthIterator, 1);
                     std::advance(newLineIterator, 1);
@@ -366,7 +378,7 @@ static void DrawTextCenteredInARectangle(Font font, Rectangle rec, float spacing
                     }
                     if (newLineIterator != newLineIndexList.end()) {
                         endLineIndex = *newLineIterator;
-                    } 
+                    }
                 }
             }
 
