@@ -55,7 +55,7 @@ unsigned char textColorG = 0xFF;
 unsigned char textColorB = 0xFF;
 unsigned char textColorA = 0xFF;
 std::string fontPath = "fonts/Raleway.ttf";
-float fontSize = 72.0f;
+float fontSize = 36.0f;
 float baseSize = fontSize;
 bool isServerRunning = false;
 
@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
 
     std::string fontPathCopy = fontPath;
 
-    RAYLIB_H::Font font = LoadFontEx(fontPath.c_str(), 128, 0, 512);
+    RAYLIB_H::Font font = LoadFontEx(fontPath.c_str(), 300, 0, 512);
     font.baseSize = 100;
 
     while (!WindowShouldClose()) {
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
         if (fontPath != fontPathCopy) {
             fontPathCopy = fontPath;
             UnloadFont(font);
-            font = LoadFontEx(fontPath.c_str(), 128, 0, 512);
+            font = LoadFontEx(fontPath.c_str(), 300, 0, 512);
             font.baseSize = 100;
         }
         BeginDrawing();
@@ -170,6 +170,15 @@ int main(int argc, char** argv) {
     }
     else {
         HTTPSServer->stop();
+    }
+
+    streamingServerMutex.lock();
+
+    if (isServerRunning) {
+        streamingServerMutex.unlock();
+        screenStreamerTask->cancel();
+    } else {
+        streamingServerMutex.unlock();
     }
 
     return 0;
