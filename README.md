@@ -4,7 +4,7 @@
 
 ## Getting started
 
-From github modif
+Local modif
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.
 
