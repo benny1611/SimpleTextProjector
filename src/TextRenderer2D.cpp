@@ -70,50 +70,82 @@ void TextRenderer2D::checkCompileErrors(unsigned int shader, ShaderType type) {
 }
 
 
-void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height) {
+void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep) {
 
     // measure text
-
+    float lineHeight = fontFace->height >> 6;
     int numberOfCharacters = utf8::distance(text->begin(), text->end());
+    std::string modifiedText = *text;
     const int maxSupportedLines = 256;
-    std::string::iterator iterator = text->begin();
-    float textLength = 0;
-    int lineNumber = 0;
+    std::string::iterator iterator = modifiedText.begin();
+    float textWidth = 0;
+    int numberOfLines = 0;
     int lineWidths[maxSupportedLines];
 
-    for (int i = 0; i < numberOfCharacters; i++) {
-        int charCode = utf8::next(iterator, text->end());
+    bool textFitsInBox = false;
 
-        char debug = (char)charCode;
+    while (!textFitsInBox) {
+        float maxTextWidth = 0.0f;
+        bool textWidthBiggerThanBoxWidth = false;
 
-        if (charCode != 10) {
-            std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
+        numberOfCharacters = utf8::distance(modifiedText.begin(), modifiedText.end());
 
-            if (characterIt == characterCache.end()) {
-                // cache miss --> generate texture
-                generateAndAddCharacter(charCode);
-                characterIt = characterCache.find(charCode);
+        for (int i = 0; i < numberOfCharacters; i++) {
+            int charCode = utf8::next(iterator, modifiedText.end());
+
+            char debug = (char)charCode;
+
+            if (charCode != 10) {
+                std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
+
+                if (characterIt == characterCache.end()) {
+                    // cache miss --> generate texture
+                    generateAndAddCharacter(charCode);
+                    characterIt = characterCache.find(charCode);
+                }
+
+                Character ch = (*characterIt).second;
+
+                textWidth += (ch.Advance >> 6);
             }
-
-            Character ch = (*characterIt).second;
-
-            textLength += (ch.Advance >> 6);
-        } else {
-            if (lineNumber < maxSupportedLines) {
-                lineWidths[lineNumber] = textLength;
-                lineNumber++;
-                textLength = 0;
+            else {
+                if (numberOfLines < maxSupportedLines) {
+                    lineWidths[numberOfLines] = textWidth;
+                    if (textWidth > maxTextWidth) {
+                        maxTextWidth = textWidth;
+                    }
+                    if (textWidth > width) {
+                        textWidthBiggerThanBoxWidth = true;
+                        addNewLineToString(modifiedText, i);
+                        break;
+                    }
+                    numberOfLines++;
+                    textWidth = 0;
+                }
             }
         }
-    }
 
-    char lastChar = text->back();
-    if (lastChar != '\n' && lastChar != '\r') {
-        lineWidths[lineNumber] = textLength;
-        lineNumber++;
-    }
+        char lastChar = modifiedText.back();
+        if (lastChar != '\n' && lastChar != '\r') {
+            lineWidths[numberOfLines] = textWidth;
+            if (textWidth > maxTextWidth) {
+                maxTextWidth = textWidth;
+            }
+            numberOfLines++;
+        }
 
-    float lineHeight = fontFace->height >> 6;
+        float totalTextHeight = lineHeight * 4 * numberOfLines;
+
+        if (textWidthBiggerThanBoxWidth) {
+            continue;
+        }
+
+        if (totalTextHeight > height) {
+            // TODO: make font size smaller, then continue
+        }
+
+        textFitsInBox = true;
+    }
 
     glUseProgram(shaderID);
     int colorLocation = glGetUniformLocation(shaderID, "textColor");
@@ -129,10 +161,10 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
 
     float y = boxY + (height / 2.0f);
 
-    if (lineNumber == 1) {
+    if (numberOfLines == 1) {
         y -= lineHeight;
     } else {
-        y += (lineHeight * lineNumber);
+        y += (lineHeight * numberOfLines);
     }
 
 
@@ -142,7 +174,7 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
         if (charCode == 10) {
             currentLineNumber++;
             y -= lineHeight * 4;
-            if (currentLineNumber < lineNumber) {
+            if (currentLineNumber < numberOfLines) {
                 x = boxX + (width / 2.0f) - (lineWidths[currentLineNumber] / 2.0f);
             }
             continue;
@@ -243,4 +275,45 @@ void TextRenderer2D::generateAndAddCharacter(int charCode) {
     };
 
     characterCache.insert(std::pair<int, Character>(charCode, character));
+}
+
+void TextRenderer2D::addNewLineToString(std::string& str, int pos, bool breakAtSpace) {
+    char newLine = '\n';
+
+    char* strAsCString = (char*)str.c_str();
+    utf8::unchecked::iterator<char*> it(strAsCString);
+
+    auto insertIterator = str.begin();
+    int character = -1;
+    for (int i = 0; i < pos && insertIterator != str.end(); i++) {
+        character = utf8::unchecked::next(insertIterator);
+    }
+
+    bool foundASpaceCharacter = false;
+    if (breakAtSpace) {
+        if (character != 32) {
+            
+            for (int i = pos; i >= 0 && insertIterator != str.begin(); i--) {
+                character = utf8::unchecked::prior(insertIterator);
+                if (character == 32) { // ASCII code for space
+                    // erase the space
+                    auto insertIteratorOneNext = insertIterator;
+                    utf8::unchecked::next(insertIteratorOneNext); 
+                    str.erase(insertIterator, insertIteratorOneNext);
+
+                    foundASpaceCharacter = true;
+                    break;
+                }
+            }
+            if (!foundASpaceCharacter) {
+                for (int i = 0; i < pos && insertIterator != str.end(); i++) {
+                    utf8::unchecked::next(insertIterator);
+                }
+            }
+        }
+    }
+
+    std::string newLineString;
+    utf8::append(newLine, std::back_inserter(newLineString));
+    str.insert(insertIterator - str.begin(), newLineString);
 }

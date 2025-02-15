@@ -60,7 +60,7 @@ TextRenderer2D* renderer;
 void monitor_callback(GLFWmonitor* monitor, int event);
 unsigned char* loadFile(const std::string& filename, size_t& fileSize);
 
-bool showDebugLines = true;
+bool showDebugLines = false;
 
 int main(int argc, char** argv) {
     CustomErrorHandler ceh;
@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
             glEnable(GL_BLEND);
         }
 
-        renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight);
+        renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight, fontSize);
 
         /* Swap buffers */
         glfwSwapBuffers(window);

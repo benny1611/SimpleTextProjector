@@ -12,7 +12,7 @@ public:
 	TextRenderer2D(float screenWidth, float screenHeight, FT_Face& face, Logger* logger);
     ~TextRenderer2D();
 
-    void renderCenteredText(std::string* text, float boxX, float boxY, float width, float height);
+    void renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep = 5.0f);
 private:
 
     struct Character {
@@ -60,5 +60,7 @@ private:
     enum ShaderType {vertex, fragment, program};
 
     void checkCompileErrors(unsigned int shader, ShaderType type);
+
+    static void addNewLineToString(std::string& str, int position, bool breakAtSpace = true);
 };
 
