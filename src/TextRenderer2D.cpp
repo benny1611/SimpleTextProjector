@@ -70,47 +70,50 @@ void TextRenderer2D::checkCompileErrors(unsigned int shader, ShaderType type) {
 }
 
 
-void TextRenderer2D::renderText(char* text, int textLengthInBytes, float boxX, float boxY, float width, float height) {
+void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height) {
 
     // measure text
 
-    int numberOfCharacters = utf8::distance(text, text + textLengthInBytes);
-
-    char* iterator = text;
+    int numberOfCharacters = utf8::distance(text->begin(), text->end());
+    const int maxSupportedLines = 256;
+    std::string::iterator iterator = text->begin();
     float textLength = 0;
-    float maxBearingY = 0;
-    float maxNegativeBearingY = 0;
+    int lineNumber = 0;
+    int lineWidths[maxSupportedLines];
 
     for (int i = 0; i < numberOfCharacters; i++) {
-        int charCode = utf8::next(iterator, text + textLengthInBytes);
+        int charCode = utf8::next(iterator, text->end());
 
-        std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
+        char debug = (char)charCode;
 
-        if (characterIt == characterCache.end()) {
-            // cache miss --> generate texture
-            generateAndAddCharacter(charCode);
-            characterIt = characterCache.find(charCode);
+        if (charCode != 10) {
+            std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
+
+            if (characterIt == characterCache.end()) {
+                // cache miss --> generate texture
+                generateAndAddCharacter(charCode);
+                characterIt = characterCache.find(charCode);
+            }
+
+            Character ch = (*characterIt).second;
+
+            textLength += (ch.Advance >> 6);
+        } else {
+            if (lineNumber < maxSupportedLines) {
+                lineWidths[lineNumber] = textLength;
+                lineNumber++;
+                textLength = 0;
+            }
         }
-
-        Character ch = (*characterIt).second;
-
-        if (ch.Bearing.y > maxBearingY) {
-            maxBearingY = ch.Bearing.y;
-        }
-
-        float negativeBearingY = ch.Size.y - ch.Bearing.y;
-
-        if (negativeBearingY > maxNegativeBearingY) {
-            maxNegativeBearingY = negativeBearingY;
-        }
-
-        textLength += (ch.Advance >> 6);
     }
 
-    float totalLineHeight = maxNegativeBearingY + maxBearingY;
+    char lastChar = text->back();
+    if (lastChar != '\n' && lastChar != '\r') {
+        lineWidths[lineNumber] = textLength;
+        lineNumber++;
+    }
 
-    float x = boxX + (width / 2.0f) - (textLength / 2.0f);
-    float y = boxY + (height / 2.0f) - (totalLineHeight / 2.0f);
+    float lineHeight = fontFace->height >> 6;
 
     glUseProgram(shaderID);
     int colorLocation = glGetUniformLocation(shaderID, "textColor");
@@ -120,10 +123,30 @@ void TextRenderer2D::renderText(char* text, int textLengthInBytes, float boxX, f
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 
     
-    char* it = text;
+    std::string::iterator it = text->begin();
+    int currentLineNumber = 0;
+    float x = boxX + (width / 2.0f) - (lineWidths[currentLineNumber] / 2.0f);
+
+    float y = boxY + (height / 2.0f);
+
+    if (lineNumber == 1) {
+        y -= lineHeight;
+    } else {
+        y += (lineHeight * lineNumber);
+    }
+
 
     for (int i = 0; i < numberOfCharacters; i++) {
-        int charCode = utf8::next(it, text + textLengthInBytes);
+        int charCode = utf8::next(it, text->end());
+
+        if (charCode == 10) {
+            currentLineNumber++;
+            y -= lineHeight * 4;
+            if (currentLineNumber < lineNumber) {
+                x = boxX + (width / 2.0f) - (lineWidths[currentLineNumber] / 2.0f);
+            }
+            continue;
+        }
 
         std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
 

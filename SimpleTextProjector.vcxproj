@@ -152,7 +152,6 @@
     <None Include="SimpleTextProjector.properties" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Base64.h" />
     <ClInclude Include="src\CommandRequestHandler.h" />
     <ClInclude Include="src\CustomErrorHandler.h" />
     <ClInclude Include="src\HTTPCommandServer.h" />

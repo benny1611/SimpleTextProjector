@@ -23,7 +23,7 @@ extern unsigned char textColorR;
 extern unsigned char textColorG;
 extern unsigned char textColorB;
 extern unsigned char textColorA;
-extern char* text;
+extern std::string* text;
 extern float fontSize;
 extern std::string fontPath;
 extern std::set<WebSocket> clients;

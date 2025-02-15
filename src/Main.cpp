@@ -42,7 +42,7 @@ Mutex streamingServerMutex;
 Poco::TaskManager* taskManager;
 ScreenStreamerTask* screenStreamerTask;
 
-char* text = new char[100];
+std::string* text = new std::string("Welcome to SimpleTextProjector");
 
 unsigned char textColorR = 0xFF;
 unsigned char textColorG = 0xFF;
@@ -63,11 +63,6 @@ unsigned char* loadFile(const std::string& filename, size_t& fileSize);
 bool showDebugLines = true;
 
 int main(int argc, char** argv) {
-    char* initialText = (char*)"\xC3\x8E\xC8\x9B\x69\x20\x6D\x75\x6C\xC8\x9B\x75\x6D\x65\x73\x63\x20\x63\xC4\x83\x20\x61\x69\x20\x61\x6C\x65\x73\x20\x72\x61\x79\x6C\x69\x62\x2E\x0A";
-    int initTextLength = strlen(initialText);
-    memcpy_s(text, initTextLength, initialText, initTextLength);
-    text[initTextLength] = '\0';
-
     CustomErrorHandler ceh;
     ErrorHandler::set(&ceh);
 
@@ -175,6 +170,7 @@ int main(int argc, char** argv) {
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
+        std::cout << "";
 
         glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -207,7 +203,7 @@ int main(int argc, char** argv) {
             glEnable(GL_BLEND);
         }
 
-        renderer->renderText(text, initTextLength, 0, 0, defaultWidth, defaultHeight);
+        renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight);
 
         /* Swap buffers */
         glfwSwapBuffers(window);

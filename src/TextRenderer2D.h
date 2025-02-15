@@ -12,7 +12,7 @@ public:
 	TextRenderer2D(float screenWidth, float screenHeight, FT_Face& face, Logger* logger);
     ~TextRenderer2D();
 
-    void renderText(char* text, int textLengthInBytes, float boxX, float boxY, float width, float height);
+    void renderCenteredText(std::string* text, float boxX, float boxY, float width, float height);
 private:
 
     struct Character {

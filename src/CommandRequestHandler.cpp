@@ -6,9 +6,9 @@
 #include "Poco/JSON/Parser.h"
 #include "Poco/JSON/Object.h"
 #include "Poco/Dynamic/Var.h"
+#include "Poco/Base64Decoder.h"
 #include "Poco/Exception.h"
 #include "SharedVariables.h"
-#include "Base64.h"
 #include <fstream>
 
 using Poco::Util::Application;
@@ -19,6 +19,8 @@ using Poco::JSON::Parser;
 using Poco::JSON::Object;
 using Poco::Dynamic::Var;
 using Poco::Exception;
+using Poco::Base64Decoder;
+
 
 void handleText(std::string& textValue, Application& app);
 std::string handleFont(std::string& fontPathValue, Application& app);
@@ -196,23 +198,23 @@ void handleCommand(std::string jsonCommand, WebSocket ws) {
 
 void handleText(std::string& textValue, Application& app) {
 	app.logger().debug("Here's your encoded text: " + textValue);
-	
+
+	std::istringstream iss(textValue);
+	std::ostringstream oss;
+
+	Base64Decoder decoder(iss);
+	oss << decoder.rdbuf();
+
+	std::string decoded = oss.str();
+
 	textMutex.lock();
-	int comparison = strncmp(textValue.c_str(), text, textValue.length());
-	if (comparison == 0) { // text is equal
-		textMutex.unlock();
-		return;
+	if (decoded != *text) {
+		delete text;
+		text = new std::string(decoded);
+
+		app.logger().debug("Here's your decoded text: {}", *text);
 	}
-	char* result = new char[textValue.size()];
-	int outLen;
-	macaron::Base64::Decode(textValue, result, outLen);
-	result[outLen] = '\0';
-	delete[] text;
-	text = result;
 	textMutex.unlock();
-	
-	std::string outputLogString(result);
-	app.logger().debug("Here's your decoded text: {}", outputLogString);
 }
 
 std::string handleTextColor(Var& colorVar, Application& app) {
