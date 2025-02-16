@@ -72,88 +72,20 @@ void TextRenderer2D::checkCompileErrors(unsigned int shader, ShaderType type) {
 
 void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep) {
 
-    // measure text
-    float lineHeight = fontFace->height >> 6;
-    int numberOfCharacters = utf8::distance(text->begin(), text->end());
     std::string modifiedText = *text;
-    const int maxSupportedLines = 256;
-    int numberOfLines = 0;
-    int lineWidths[maxSupportedLines];
+    int lineWidths[256];
+    int lineHeights[256];
+    int lineAscends[256];
+    int numberOfLines;
+    int totalTextHeight;
 
-    bool textFitsInBox = false;
+    bool isTextFittingInTheBox = adjustTextForBox(modifiedText, boxX, boxY, width, height, desiredFontSize, decreaseStep, lineWidths, lineHeights, lineAscends, numberOfLines, totalTextHeight);
 
-    while (!textFitsInBox) {
-        float maxTextWidth = 0.0f;
-        bool textWidthBiggerThanBoxWidth = false;
-
-        numberOfCharacters = utf8::distance(modifiedText.begin(), modifiedText.end());
-        std::string::iterator iterator = modifiedText.begin();
-        numberOfLines = 0;
-        float textWidth = 0;
-
-        for (int i = 0; i < numberOfCharacters; i++) {
-            int charCode = utf8::next(iterator, modifiedText.end());
-
-            char debug = (char)charCode;
-
-            if (charCode != 10) {
-                std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
-
-                if (characterIt == characterCache.end()) {
-                    // cache miss --> generate texture
-                    generateAndAddCharacter(charCode);
-                    characterIt = characterCache.find(charCode);
-                }
-
-                Character ch = (*characterIt).second;
-
-                textWidth += (ch.Advance >> 6);
-                if (textWidth > width) {
-                    textWidthBiggerThanBoxWidth = true;
-                    addNewLineToString(modifiedText, i);
-                    break;
-                }
-            }
-            else {
-                if (numberOfLines < maxSupportedLines) {
-                    lineWidths[numberOfLines] = textWidth;
-                    if (textWidth > maxTextWidth) {
-                        maxTextWidth = textWidth;
-                    }
-                    if (textWidth > width) {
-                        textWidthBiggerThanBoxWidth = true;
-                        addNewLineToString(modifiedText, i);
-                        break;
-                    }
-                    numberOfLines++;
-                    textWidth = 0;
-                }
-            }
-        }
-
-        if (textWidthBiggerThanBoxWidth) {
-            continue;
-        }
-
-        char lastChar = modifiedText.back();
-        if (lastChar != '\n' && lastChar != '\r') {
-            lineWidths[numberOfLines] = textWidth;
-            if (textWidth > maxTextWidth) {
-                maxTextWidth = textWidth;
-            }
-            numberOfLines++;
-        }
-
-        float totalTextHeight = lineHeight * 4 * numberOfLines;
-
-        if (totalTextHeight > height) {
-            // TODO: make font size smaller, then continue
-        }
-
-        textFitsInBox = true;
+    if (!isTextFittingInTheBox) {
+        // TODO: Do something...
     }
 
-    numberOfCharacters = utf8::distance(modifiedText.begin(), modifiedText.end());
+    int numberOfCharacters = utf8::distance(modifiedText.begin(), modifiedText.end());
 
     glUseProgram(shaderID);
     int colorLocation = glGetUniformLocation(shaderID, "textColor");
@@ -167,13 +99,7 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
     int currentLineNumber = 0;
     float x = boxX + (width / 2.0f) - (lineWidths[currentLineNumber] / 2.0f);
 
-    float y = boxY + (height / 2.0f);
-
-    if (numberOfLines == 1) {
-        y -= lineHeight;
-    } else {
-        y += (lineHeight * numberOfLines);
-    }
+    float y = boxY + (height / 2.0f) + (totalTextHeight / 2.0f) - lineAscends[currentLineNumber];
 
 
     for (int i = 0; i < numberOfCharacters; i++) {
@@ -181,9 +107,10 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
 
         if (charCode == 10) {
             currentLineNumber++;
-            y -= lineHeight * 4;
             if (currentLineNumber < numberOfLines) {
                 x = boxX + (width / 2.0f) - (lineWidths[currentLineNumber] / 2.0f);
+                int previousLineDescent = lineHeights[currentLineNumber - 1] - lineAscends[currentLineNumber - 1];
+                y = y - previousLineDescent - lineAscends[currentLineNumber];
             }
             continue;
         }
@@ -202,17 +129,17 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
         float xPos = x + ch.Bearing.x;
         float yPos = y - (ch.Size.y - ch.Bearing.y);
 
-        float width = ch.Size.x;
-        float height = ch.Size.y;
+        float characterWidth = ch.Size.x;
+        float characterHeight = ch.Size.y;
 
         float vertices[6][4] = {
-            { xPos,         yPos + height,   0.0f, 0.0f },
-            { xPos,         yPos,            0.0f, 1.0f },
-            { xPos + width, yPos,            1.0f, 1.0f },
+            { xPos,                  yPos + characterHeight,   0.0f, 0.0f },
+            { xPos,                  yPos,                     0.0f, 1.0f },
+            { xPos + characterWidth, yPos,                     1.0f, 1.0f },
 
-            { xPos,         yPos + height,   0.0f, 0.0f },
-            { xPos + width, yPos,            1.0f, 1.0f },
-            { xPos + width, yPos + height,   1.0f, 0.0f }
+            { xPos,                  yPos + characterHeight,   0.0f, 0.0f },
+            { xPos + characterWidth, yPos,                     1.0f, 1.0f },
+            { xPos + characterWidth, yPos + characterHeight,   1.0f, 0.0f }
         };
 
         unsigned int positionAttributeLocation = glGetAttribLocation(shaderID, "position");
@@ -279,7 +206,8 @@ void TextRenderer2D::generateAndAddCharacter(int charCode) {
         texture,
         glm::ivec2(fontFace->glyph->bitmap.width, fontFace->glyph->bitmap.rows),
         glm::ivec2(fontFace->glyph->bitmap_left, fontFace->glyph->bitmap_top),
-        fontFace->glyph->advance.x
+        fontFace->glyph->advance.x,
+        fontFace->glyph->metrics.height
     };
 
     characterCache.insert(std::pair<int, Character>(charCode, character));
@@ -324,4 +252,113 @@ void TextRenderer2D::addNewLineToString(std::string& str, int pos, bool breakAtS
     std::string newLineString;
     utf8::append(newLine, std::back_inserter(newLineString));
     str.insert(insertIterator - str.begin(), newLineString);
+}
+
+bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, int(&lineWidths)[256], int(&lineHeights)[256], int(&lineAscends)[256], int& numberOfLines, int& totalTextHeight) {
+    // measure text
+    int numberOfCharacters = utf8::distance(input.begin(), input.end());
+
+    std::string modifiedText = input;
+
+    int _numberOfLines = 0;
+
+    bool textFitsInBox = false;
+
+    while (!textFitsInBox) {
+        bool textWidthBiggerThanBoxWidth = false;
+
+        numberOfCharacters = utf8::distance(modifiedText.begin(), modifiedText.end());
+        std::string::iterator iterator = modifiedText.begin();
+        _numberOfLines = 0;
+        int textWidth = 0;
+        int textHeight = 0;
+
+        int maxAscend = 0;
+        int maxDescend = 0;
+
+        for (int i = 0; i < numberOfCharacters; i++) {
+            int charCode = utf8::next(iterator, modifiedText.end());
+
+            if (charCode != 10) {
+                std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
+
+                if (characterIt == characterCache.end()) {
+                    // cache miss --> generate texture
+                    generateAndAddCharacter(charCode);
+                    characterIt = characterCache.find(charCode);
+                }
+
+                Character ch = (*characterIt).second;
+
+                textWidth += (ch.Advance >> 6);
+                if (textWidth > width) {
+                    textWidthBiggerThanBoxWidth = true;
+                    addNewLineToString(modifiedText, i);
+                    break;
+                }
+
+                int ascend = ch.Bearing.y;
+                int descend = (ch.height >> 6) - ascend;
+
+                maxAscend = std::max(maxAscend, ascend);
+                maxDescend = std::max(maxDescend, descend);
+
+            } else {
+                if (_numberOfLines < 256) {
+                    lineWidths[_numberOfLines] = textWidth;
+                    if (textWidth > width) {
+                        textWidthBiggerThanBoxWidth = true;
+                        addNewLineToString(modifiedText, i);
+                        break;
+                    }
+                    textHeight = maxAscend + maxDescend;
+                    lineHeights[_numberOfLines] = textHeight;
+                    lineAscends[_numberOfLines] = maxAscend;
+                    _numberOfLines++;
+                    textWidth = 0;
+                    maxAscend = 0;
+                    maxDescend = 0;
+                }
+            }
+        }
+
+        if (textWidthBiggerThanBoxWidth) {
+            continue;
+        }
+
+        char lastChar = modifiedText.back();
+        if (lastChar != '\n' && lastChar != '\r') {
+            lineWidths[_numberOfLines] = textWidth;
+            textHeight = maxAscend + maxDescend;
+            lineHeights[_numberOfLines] = textHeight;
+            lineAscends[_numberOfLines] = maxAscend;
+            _numberOfLines++;
+        }
+
+        int _totalTextHeight = 0;
+
+        for (int i = 0; i < _numberOfLines; i++) {
+            _totalTextHeight += lineHeights[i];
+        }
+
+        if (_totalTextHeight > height) {
+            if (desiredFontSize > decreaseStep) {
+                desiredFontSize -= decreaseStep;
+                FT_Set_Pixel_Sizes(fontFace, 0, desiredFontSize);
+                characterCache.clear();
+                modifiedText = input;
+                continue;
+            } else {
+                return false;
+            }
+        }
+
+        totalTextHeight = _totalTextHeight;
+        textFitsInBox = true;
+    }
+
+    numberOfLines = _numberOfLines;
+    input = modifiedText;
+
+    return textFitsInBox;
 }
