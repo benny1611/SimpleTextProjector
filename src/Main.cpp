@@ -202,9 +202,9 @@ int main(int argc, char** argv) {
             glEnable(GL_CULL_FACE);
             glEnable(GL_BLEND);
         }
-
+        textMutex.lock();
         renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight, fontSize);
-
+        textMutex.unlock();
         /* Swap buffers */
         glfwSwapBuffers(window);
         glfwPollEvents();

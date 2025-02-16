@@ -77,8 +77,6 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
     int numberOfCharacters = utf8::distance(text->begin(), text->end());
     std::string modifiedText = *text;
     const int maxSupportedLines = 256;
-    std::string::iterator iterator = modifiedText.begin();
-    float textWidth = 0;
     int numberOfLines = 0;
     int lineWidths[maxSupportedLines];
 
@@ -89,6 +87,9 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
         bool textWidthBiggerThanBoxWidth = false;
 
         numberOfCharacters = utf8::distance(modifiedText.begin(), modifiedText.end());
+        std::string::iterator iterator = modifiedText.begin();
+        numberOfLines = 0;
+        float textWidth = 0;
 
         for (int i = 0; i < numberOfCharacters; i++) {
             int charCode = utf8::next(iterator, modifiedText.end());
@@ -107,6 +108,11 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
                 Character ch = (*characterIt).second;
 
                 textWidth += (ch.Advance >> 6);
+                if (textWidth > width) {
+                    textWidthBiggerThanBoxWidth = true;
+                    addNewLineToString(modifiedText, i);
+                    break;
+                }
             }
             else {
                 if (numberOfLines < maxSupportedLines) {
@@ -125,6 +131,10 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
             }
         }
 
+        if (textWidthBiggerThanBoxWidth) {
+            continue;
+        }
+
         char lastChar = modifiedText.back();
         if (lastChar != '\n' && lastChar != '\r') {
             lineWidths[numberOfLines] = textWidth;
@@ -136,16 +146,14 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
 
         float totalTextHeight = lineHeight * 4 * numberOfLines;
 
-        if (textWidthBiggerThanBoxWidth) {
-            continue;
-        }
-
         if (totalTextHeight > height) {
             // TODO: make font size smaller, then continue
         }
 
         textFitsInBox = true;
     }
+
+    numberOfCharacters = utf8::distance(modifiedText.begin(), modifiedText.end());
 
     glUseProgram(shaderID);
     int colorLocation = glGetUniformLocation(shaderID, "textColor");
@@ -155,7 +163,7 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 
     
-    std::string::iterator it = text->begin();
+    std::string::iterator it = modifiedText.begin();
     int currentLineNumber = 0;
     float x = boxX + (width / 2.0f) - (lineWidths[currentLineNumber] / 2.0f);
 
@@ -169,7 +177,7 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
 
 
     for (int i = 0; i < numberOfCharacters; i++) {
-        int charCode = utf8::next(it, text->end());
+        int charCode = utf8::next(it, modifiedText.end());
 
         if (charCode == 10) {
             currentLineNumber++;
