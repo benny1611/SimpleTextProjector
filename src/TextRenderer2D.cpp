@@ -70,19 +70,19 @@ void TextRenderer2D::checkCompileErrors(unsigned int shader, ShaderType type) {
 }
 
 
-void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep) {
+void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool debug) {
+
+    if (debug) {
+        drawDebugLines(boxX, boxY, width, height);
+    }
 
     std::string modifiedText = *text;
-    int lineWidths[256];
-    int lineHeights[256];
-    int lineAscends[256];
-    int numberOfLines;
-    int totalTextHeight;
+    Lines lines;
 
-    bool isTextFittingInTheBox = adjustTextForBox(modifiedText, boxX, boxY, width, height, desiredFontSize, decreaseStep, lineWidths, lineHeights, lineAscends, numberOfLines, totalTextHeight);
+    bool isTextFittingInTheBox = adjustTextForBox(modifiedText, boxX, boxY, width, height, desiredFontSize, decreaseStep, lines);
 
     if (!isTextFittingInTheBox) {
-        // TODO: Do something...
+        return;
     }
 
     int numberOfCharacters = utf8::distance(modifiedText.begin(), modifiedText.end());
@@ -97,9 +97,9 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
     
     std::string::iterator it = modifiedText.begin();
     int currentLineNumber = 0;
-    float x = boxX + (width / 2.0f) - (lineWidths[currentLineNumber] / 2.0f);
+    float x = boxX + (width / 2.0f) - (lines.lineWidths[currentLineNumber] / 2.0f);
 
-    float y = boxY + (height / 2.0f) + (totalTextHeight / 2.0f) - lineAscends[currentLineNumber];
+    float y = boxY + (height / 2.0f) + (lines.totalTextHeight / 2.0f) - lines.lineAscends[currentLineNumber];
 
 
     for (int i = 0; i < numberOfCharacters; i++) {
@@ -107,10 +107,10 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
 
         if (charCode == 10) {
             currentLineNumber++;
-            if (currentLineNumber < numberOfLines) {
-                x = boxX + (width / 2.0f) - (lineWidths[currentLineNumber] / 2.0f);
-                int previousLineDescent = lineHeights[currentLineNumber - 1] - lineAscends[currentLineNumber - 1];
-                y = y - previousLineDescent - lineAscends[currentLineNumber];
+            if (currentLineNumber < lines.numberOfLines) {
+                x = boxX + (width / 2.0f) - (lines.lineWidths[currentLineNumber] / 2.0f);
+                int previousLineDescent = lines.lineHeights[currentLineNumber - 1] - lines.lineAscends[currentLineNumber - 1];
+                y = y - previousLineDescent - lines.lineAscends[currentLineNumber];
             }
             continue;
         }
@@ -254,7 +254,7 @@ void TextRenderer2D::addNewLineToString(std::string& str, int pos, bool breakAtS
     str.insert(insertIterator - str.begin(), newLineString);
 }
 
-bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, int(&lineWidths)[256], int(&lineHeights)[256], int(&lineAscends)[256], int& numberOfLines, int& totalTextHeight) {
+bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Lines& lines) {
     // measure text
     int numberOfCharacters = utf8::distance(input.begin(), input.end());
 
@@ -305,15 +305,15 @@ bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY
 
             } else {
                 if (_numberOfLines < 256) {
-                    lineWidths[_numberOfLines] = textWidth;
+                    lines.lineWidths[_numberOfLines] = textWidth;
                     if (textWidth > width) {
                         textWidthBiggerThanBoxWidth = true;
                         addNewLineToString(modifiedText, i);
                         break;
                     }
                     textHeight = maxAscend + maxDescend;
-                    lineHeights[_numberOfLines] = textHeight;
-                    lineAscends[_numberOfLines] = maxAscend;
+                    lines.lineHeights[_numberOfLines] = textHeight;
+                    lines.lineAscends[_numberOfLines] = maxAscend;
                     _numberOfLines++;
                     textWidth = 0;
                     maxAscend = 0;
@@ -328,17 +328,17 @@ bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY
 
         char lastChar = modifiedText.back();
         if (lastChar != '\n' && lastChar != '\r') {
-            lineWidths[_numberOfLines] = textWidth;
+            lines.lineWidths[_numberOfLines] = textWidth;
             textHeight = maxAscend + maxDescend;
-            lineHeights[_numberOfLines] = textHeight;
-            lineAscends[_numberOfLines] = maxAscend;
+            lines.lineHeights[_numberOfLines] = textHeight;
+            lines.lineAscends[_numberOfLines] = maxAscend;
             _numberOfLines++;
         }
 
         int _totalTextHeight = 0;
 
         for (int i = 0; i < _numberOfLines; i++) {
-            _totalTextHeight += lineHeights[i];
+            _totalTextHeight += lines.lineHeights[i];
         }
 
         if (_totalTextHeight > height) {
@@ -353,12 +353,47 @@ bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY
             }
         }
 
-        totalTextHeight = _totalTextHeight;
+        lines.totalTextHeight = _totalTextHeight;
         textFitsInBox = true;
     }
 
-    numberOfLines = _numberOfLines;
+    lines.numberOfLines = _numberOfLines;
     input = modifiedText;
 
     return textFitsInBox;
+}
+
+void TextRenderer2D::drawDebugLines(float boxX, float boxY, float width, float height) {
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+
+    glLineWidth(3.0f);
+
+    glBegin(GL_LINES);
+    glVertex2f(boxX, (boxY + height) / 2);
+    glVertex2f(boxX + width, (boxY + height) / 2);
+    glEnd();
+
+    glBegin(GL_LINES);
+    glVertex2f((boxX + width) / 2, boxY);
+    glVertex2f((boxX + width) / 2, boxY + height);
+    glEnd();
+
+
+    glBegin(GL_LINES);
+    glVertex2f(boxX, boxY);
+    glVertex2d(boxX + width, boxY); 
+    glVertex2f(boxX + width, boxY + height);
+    glVertex2f(boxX, boxY + height);
+    glVertex2f(boxX, boxY + height);
+    glVertex2f(boxX, boxY);
+    glEnd();
+
+    glFlush();
+
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
 }

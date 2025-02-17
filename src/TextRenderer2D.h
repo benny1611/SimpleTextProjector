@@ -12,7 +12,7 @@ public:
 	TextRenderer2D(float screenWidth, float screenHeight, FT_Face& face, Logger* logger);
     ~TextRenderer2D();
 
-    void renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep = 5.0f);
+    void renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep = 5.0f, bool debug = false);
 private:
 
     struct Character {
@@ -21,6 +21,14 @@ private:
         glm::ivec2   Bearing;   // Offset from baseline to left/top of glyph
         unsigned int Advance;   // Horizontal offset to advance to next glyph
         int height;
+    };
+
+    struct Lines {
+        int lineWidths[256];
+        int lineHeights[256];
+        int lineAscends[256];
+        int numberOfLines;
+        int totalTextHeight;
     };
 
     Logger* consoleLogger;
@@ -62,8 +70,10 @@ private:
 
     void checkCompileErrors(unsigned int shader, ShaderType type);
 
-    bool adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, int(&lineWidths)[256], int(&lineHeights)[256], int(&lineAscends)[256], int& numberOfLines, int& totalTextHeight);
+    bool adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Lines& lines);
 
     static void addNewLineToString(std::string& str, int position, bool breakAtSpace = true);
+
+    void drawDebugLines(float boxX, float boxY, float width, float height);
 };
 

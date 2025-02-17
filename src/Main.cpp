@@ -60,8 +60,6 @@ TextRenderer2D* renderer;
 void monitor_callback(GLFWmonitor* monitor, int event);
 unsigned char* loadFile(const std::string& filename, size_t& fileSize);
 
-bool showDebugLines = false;
-
 int main(int argc, char** argv) {
     CustomErrorHandler ceh;
     ErrorHandler::set(&ceh);
@@ -175,36 +173,10 @@ int main(int argc, char** argv) {
         glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        if (showDebugLines) {
-            glMatrixMode(GL_PROJECTION);
-            glLoadIdentity();
-            glOrtho(0, defaultWidth, 0, defaultHeight, -1, 1);
-            glMatrixMode(GL_MODELVIEW);
-            glLoadIdentity();
-
-            glDisable(GL_CULL_FACE);
-            glDisable(GL_BLEND);
-
-            glLineWidth(3.0f);
-
-            glBegin(GL_LINES);
-            glVertex2f(0, defaultHeight/2);
-            glVertex2f(defaultWidth, defaultHeight/2);
-            glEnd();
-
-            glBegin(GL_LINES);
-            glVertex2f(defaultWidth/2, 0);
-            glVertex2f(defaultWidth/2, defaultHeight);
-            glEnd();
-
-            glFlush();
-
-            glEnable(GL_CULL_FACE);
-            glEnable(GL_BLEND);
-        }
         textMutex.lock();
-        renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight, fontSize);
+        renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight, fontSize, 5.0f, true);
         textMutex.unlock();
+
         /* Swap buffers */
         glfwSwapBuffers(window);
         glfwPollEvents();
