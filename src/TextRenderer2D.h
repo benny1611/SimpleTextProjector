@@ -33,10 +33,16 @@ private:
 
     Logger* consoleLogger;
     FT_Face fontFace;
-    std::map<int, Character> characterCache;
     glm::mat4 projectionMatrix;
     unsigned int shaderID;
     unsigned int VBO;
+
+    // cache
+    std::map<int, Character> characterCache;
+    std::string cachedInput;
+    std::string cachedModifiedText;
+    Lines cachedLines;
+    bool cachedIsTextFittingInBox;
 
     const char* vertexShaderSource = R"(
     #version 120

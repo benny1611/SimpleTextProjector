@@ -164,17 +164,18 @@ int main(int argc, char** argv) {
 
     renderer = new TextRenderer2D(defaultWidth, defaultHeight, fontFace, &consoleLogger);
 
+    bool drawDebugLines = pConf->getBool("DrawDebugLines", false);
+    float fontSizeDecreaseStep = pConf->getDouble("FontSizeDecreaseStep", 5.0);
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
-        std::cout << "";
 
         glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         textMutex.lock();
-        renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight, fontSize, 5.0f, true);
+        renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight, fontSize, fontSizeDecreaseStep, drawDebugLines);
         textMutex.unlock();
 
         /* Swap buffers */

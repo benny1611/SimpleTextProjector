@@ -71,17 +71,31 @@ void TextRenderer2D::checkCompileErrors(unsigned int shader, ShaderType type) {
 
 
 void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool debug) {
-
     if (debug) {
         drawDebugLines(boxX, boxY, width, height);
     }
 
-    std::string modifiedText = *text;
+    std::string modifiedText;
     Lines lines;
+    bool isTextFittingInTheBox;
 
-    bool isTextFittingInTheBox = adjustTextForBox(modifiedText, boxX, boxY, width, height, desiredFontSize, decreaseStep, lines);
+    if (cachedInput == *text) {
+        // cache hit, no need to measure text & all
+        modifiedText = cachedModifiedText;
+        isTextFittingInTheBox = cachedIsTextFittingInBox;
+        lines = cachedLines;
+    } else {
+        // cache miss, now measure the text and update cache
+        modifiedText = *text;
+        isTextFittingInTheBox = adjustTextForBox(modifiedText, boxX, boxY, width, height, desiredFontSize, decreaseStep, lines);
+        cachedInput = *text;
+        cachedModifiedText = modifiedText;
+        cachedIsTextFittingInBox = isTextFittingInTheBox;
+        cachedLines = lines;
+    }
 
     if (!isTextFittingInTheBox) {
+        // text doesn't fit, don't draw anything
         return;
     }
 
