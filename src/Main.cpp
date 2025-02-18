@@ -1,7 +1,6 @@
 ﻿#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <ft2build.h>
-#include <fstream>
 #include FT_FREETYPE_H
 #include "SharedVariables.h"
 #include "HTTPSCommandServer.h"
@@ -16,7 +15,7 @@
 #include "CustomErrorHandler.h"
 #include "Poco/Message.h"
 #include "Poco/TaskManager.h"
-#include "TextBoxRenderer.h"
+#include "TextBoxFactory.h"
 
 
 using Poco::ErrorHandler;
@@ -55,7 +54,6 @@ bool isServerRunning = false;
 int codePointsCount = 512;
 int loadFontSize = 256;
 GLFWmonitor** monitors;
-TextBoxRenderer* renderer;
 
 void monitor_callback(GLFWmonitor* monitor, int event);
 unsigned char* loadFile(const std::string& filename, size_t& fileSize);
@@ -100,30 +98,6 @@ int main(int argc, char** argv) {
         taskManager->start(httpsTask);
     }
 
-    FT_Library freeTypeLibrary;
-    int freeTypeError = FT_Init_FreeType(&freeTypeLibrary);
-    if (freeTypeError) {
-        consoleLogger.error("FreeType init failed with error code: " + freeTypeError);
-        exit(1);
-    }
-
-    size_t fontFileSize;
-    const unsigned char* fontFileBuffer = loadFile(fontPath, fontFileSize);
-    if (fontFileBuffer == nullptr) {
-        consoleLogger.error("Could not load font file " + fontPath + " into memory. Error code: " + std::to_string(freeTypeError));
-        exit(1);
-    }
-
-    FT_Face fontFace;
-    freeTypeError = FT_New_Memory_Face(freeTypeLibrary, fontFileBuffer, fontFileSize, 0, &fontFace);
-
-    if (freeTypeError) {
-        consoleLogger.error("Error loading the font from memory. Error code: " + freeTypeError);
-        exit(1);
-    }
-
-    FT_Set_Pixel_Sizes(fontFace, 0, fontSize);
-
     int err = glfwInit();
     if (err != GLFW_TRUE) {
         consoleLogger.error("GLFW init failed!");
@@ -162,10 +136,12 @@ int main(int argc, char** argv) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    renderer = new TextBoxRenderer(defaultWidth, defaultHeight, fontFace, &consoleLogger);
-
     bool drawDebugLines = pConf->getBool("DrawDebugLines", false);
     float fontSizeDecreaseStep = pConf->getDouble("FontSizeDecreaseStep", 5.0);
+
+    TextBoxFactory* textBoxFactory = new TextBoxFactory(defaultWidth, defaultHeight, &consoleLogger);
+
+    TextBoxRenderer* renderer = textBoxFactory->createTextBox(fontPath, 72.0f, 0, 0, defaultWidth, defaultHeight, fontSizeDecreaseStep, true);
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -175,7 +151,7 @@ int main(int argc, char** argv) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         textMutex.lock();
-        renderer->renderCenteredText(text, 0, 0, defaultWidth, defaultHeight, fontSize, fontSizeDecreaseStep, drawDebugLines);
+        renderer->renderCenteredText(text, drawDebugLines);
         textMutex.unlock();
 
         /* Swap buffers */
@@ -215,32 +191,5 @@ void monitor_callback(GLFWmonitor* monitor, int event)
     else if (event == GLFW_DISCONNECTED)
     {
         // The monitor was disconnected
-    }
-}
-
-// Function to load the contents of a file into memory as unsigned char*
-unsigned char* loadFile(const std::string& filename, size_t& fileSize) {
-    // Open the file in binary mode
-    std::ifstream file(filename, std::ios::binary | std::ios::ate);
-
-    // Check if the file was successfully opened
-    if (!file.is_open()) {
-        return nullptr;
-    }
-
-    // Get the size of the file
-    fileSize = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    // Allocate memory to hold the file contents
-    unsigned char* buffer = new unsigned char[fileSize];
-
-    // Read the file contents into the buffer
-    if (file.read(reinterpret_cast<char*>(buffer), fileSize)) {
-        return buffer;
-    }
-    else {
-        delete[] buffer;
-        return nullptr;
     }
 }

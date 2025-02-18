@@ -4,10 +4,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, Logger* logger) {
+TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Logger* logger) {
     this->consoleLogger = logger;
     this->fontFace = face;
     this->projectionMatrix = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
+    this->_boxX = boxX;
+    this->_boxY = boxY;
+    this->_width = width;
+    this->_height = height;
+    this->_desiredFontSize = desiredFontSize;
+    this->_decreaseStep = decreaseStep;
 
     // compile shaders
     unsigned int vertex;
@@ -70,9 +76,9 @@ void TextBoxRenderer::checkCompileErrors(unsigned int shader, ShaderType type) {
 }
 
 
-void TextBoxRenderer::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool debug) {
+void TextBoxRenderer::renderCenteredText(std::string* text, bool debug) {
     if (debug) {
-        drawDebugLines(boxX, boxY, width, height);
+        drawDebugLines(this->_boxX, this->_boxY, this->_width, this->_height);
     }
 
     std::string modifiedText;
@@ -87,7 +93,7 @@ void TextBoxRenderer::renderCenteredText(std::string* text, float boxX, float bo
     } else {
         // cache miss, now measure the text and update cache
         modifiedText = *text;
-        isTextFittingInTheBox = adjustTextForBox(modifiedText, boxX, boxY, width, height, desiredFontSize, decreaseStep, lines);
+        isTextFittingInTheBox = adjustTextForBox(modifiedText, _boxX, _boxY, _width, _height, _desiredFontSize, _decreaseStep, lines);
         cachedInput = *text;
         cachedModifiedText = modifiedText;
         cachedIsTextFittingInBox = isTextFittingInTheBox;
@@ -111,9 +117,9 @@ void TextBoxRenderer::renderCenteredText(std::string* text, float boxX, float bo
     
     std::string::iterator it = modifiedText.begin();
     int currentLineNumber = 0;
-    float x = boxX + (width / 2.0f) - (lines.lineWidths[currentLineNumber] / 2.0f);
+    float x = _boxX + (_width / 2.0f) - (lines.lineWidths[currentLineNumber] / 2.0f);
 
-    float y = boxY + (height / 2.0f) + (lines.totalTextHeight / 2.0f) - lines.lineAscends[currentLineNumber];
+    float y = _boxY + (_height / 2.0f) + (lines.totalTextHeight / 2.0f) - lines.lineAscends[currentLineNumber];
 
 
     for (int i = 0; i < numberOfCharacters; i++) {
@@ -122,7 +128,7 @@ void TextBoxRenderer::renderCenteredText(std::string* text, float boxX, float bo
         if (charCode == 10) {
             currentLineNumber++;
             if (currentLineNumber < lines.numberOfLines) {
-                x = boxX + (width / 2.0f) - (lines.lineWidths[currentLineNumber] / 2.0f);
+                x = _boxX + (_width / 2.0f) - (lines.lineWidths[currentLineNumber] / 2.0f);
                 int previousLineDescent = lines.lineHeights[currentLineNumber - 1] - lines.lineAscends[currentLineNumber - 1];
                 y = y - previousLineDescent - lines.lineAscends[currentLineNumber];
             }

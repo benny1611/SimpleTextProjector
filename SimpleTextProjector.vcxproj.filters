@@ -47,6 +47,9 @@
     <ClInclude Include="src\TextBoxRenderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\TextBoxFactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\CommandRequestHandler.cpp">
@@ -71,6 +74,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TextBoxFactory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

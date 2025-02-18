@@ -161,6 +161,7 @@
     <ClInclude Include="src\SharedVariables.h" />
     <ClInclude Include="src\TextBoxRenderer.h" />
     <ClInclude Include="src\WebSocketHandler.h" />
+    <ClInclude Include="src\TextBoxFactory.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\CommandRequestHandler.cpp" />
@@ -171,6 +172,7 @@
     <ClCompile Include="src\ScreenStreamer.cpp" />
     <ClCompile Include="src\ScreenStreamerTask.cpp" />
     <ClCompile Include="src\TextBoxRenderer.cpp" />
+    <ClCompile Include="src\TextBoxFactory.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
