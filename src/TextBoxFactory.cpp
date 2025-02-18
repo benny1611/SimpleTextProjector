@@ -38,7 +38,7 @@ TextBoxRenderer* TextBoxFactory::createTextBox(std::string fontPath, float desir
 
     FT_Set_Pixel_Sizes(fontFace, 0, desiredFontSize);
 
-    return new TextBoxRenderer(_screenWidth, _screenHeight, fontFace, boxX, boxY, width, height, desiredFontSize, fontSizeDecreaseStep, _consoleLogger);
+    return new TextBoxRenderer(_screenWidth, _screenHeight, fontFace, boxX, boxY, width, height, desiredFontSize, fontSizeDecreaseStep, wordWrap, _consoleLogger);
 }
 
 // Function to load the contents of a file into memory as unsigned char*

@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Logger* logger) {
+TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool wordWrap, Logger* logger) {
     this->consoleLogger = logger;
     this->fontFace = face;
     this->projectionMatrix = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
@@ -14,6 +14,7 @@ TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face&
     this->_height = height;
     this->_desiredFontSize = desiredFontSize;
     this->_decreaseStep = decreaseStep;
+    this->_wordWrap = wordWrap;
 
     // compile shaders
     unsigned int vertex;
@@ -78,7 +79,7 @@ void TextBoxRenderer::checkCompileErrors(unsigned int shader, ShaderType type) {
 
 void TextBoxRenderer::renderCenteredText(std::string* text, bool debug) {
     if (debug) {
-        drawDebugLines(this->_boxX, this->_boxY, this->_width, this->_height);
+        drawDebugLines(_boxX, _boxY, _width, _height);
     }
 
     std::string modifiedText;
@@ -233,7 +234,7 @@ void TextBoxRenderer::generateAndAddCharacter(int charCode) {
     characterCache.insert(std::pair<int, Character>(charCode, character));
 }
 
-void TextBoxRenderer::addNewLineToString(std::string& str, int pos, bool breakAtSpace) {
+void TextBoxRenderer::addNewLineToString(std::string& str, int pos, bool wordWrap) {
     char newLine = '\n';
 
     char* strAsCString = (char*)str.c_str();
@@ -246,7 +247,7 @@ void TextBoxRenderer::addNewLineToString(std::string& str, int pos, bool breakAt
     }
 
     bool foundASpaceCharacter = false;
-    if (breakAtSpace) {
+    if (wordWrap) {
         if (character != 32) {
             
             for (int i = pos; i >= 0 && insertIterator != str.begin(); i--) {
@@ -313,7 +314,7 @@ bool TextBoxRenderer::adjustTextForBox(std::string& input, float boxX, float box
                 textWidth += (ch.Advance >> 6);
                 if (textWidth > width) {
                     textWidthBiggerThanBoxWidth = true;
-                    addNewLineToString(modifiedText, i);
+                    addNewLineToString(modifiedText, i, _wordWrap);
                     break;
                 }
 
@@ -328,7 +329,7 @@ bool TextBoxRenderer::adjustTextForBox(std::string& input, float boxX, float box
                     lines.lineWidths[_numberOfLines] = textWidth;
                     if (textWidth > width) {
                         textWidthBiggerThanBoxWidth = true;
-                        addNewLineToString(modifiedText, i);
+                        addNewLineToString(modifiedText, i, _wordWrap);
                         break;
                     }
                     textHeight = maxAscend + maxDescend;

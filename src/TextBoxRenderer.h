@@ -9,7 +9,7 @@ using Poco::Logger;
 
 class TextBoxRenderer {
 public:
-    TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Logger* logger);
+    TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool wordWrap, Logger* logger);
     ~TextBoxRenderer();
 
     void renderCenteredText(std::string* text, bool debug = false);
@@ -20,6 +20,7 @@ private:
     float _height;
     float _desiredFontSize;
     float _decreaseStep;
+    bool _wordWrap;
 
     struct Character {
         unsigned int TextureID; // ID handle of the glyph texture
@@ -84,7 +85,7 @@ private:
 
     bool adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Lines& lines);
 
-    static void addNewLineToString(std::string& str, int position, bool breakAtSpace = true);
+    static void addNewLineToString(std::string& str, int position, bool breakAtSpace);
 
     void drawDebugLines(float boxX, float boxY, float width, float height);
 };
