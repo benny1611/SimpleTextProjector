@@ -7,10 +7,10 @@
 
 using Poco::Logger;
 
-class TextRenderer2D {
+class TextBoxRenderer {
 public:
-	TextRenderer2D(float screenWidth, float screenHeight, FT_Face& face, Logger* logger);
-    ~TextRenderer2D();
+    TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, Logger* logger);
+    ~TextBoxRenderer();
 
     void renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep = 5.0f, bool debug = false);
 private:

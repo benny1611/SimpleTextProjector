@@ -159,7 +159,7 @@
     <ClInclude Include="src\ScreenStreamer.h" />
     <ClInclude Include="src\ScreenStreamerTask.h" />
     <ClInclude Include="src\SharedVariables.h" />
-    <ClInclude Include="src\TextRenderer2D.h" />
+    <ClInclude Include="src\TextBoxRenderer.h" />
     <ClInclude Include="src\WebSocketHandler.h" />
   </ItemGroup>
   <ItemGroup>
@@ -170,7 +170,7 @@
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\ScreenStreamer.cpp" />
     <ClCompile Include="src\ScreenStreamerTask.cpp" />
-    <ClCompile Include="src\TextRenderer2D.cpp" />
+    <ClCompile Include="src\TextBoxRenderer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,10 +1,10 @@
-#include "TextRenderer2D.h"
+#include "TextBoxRenderer.h"
 #include "utf8.h"
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-TextRenderer2D::TextRenderer2D(float screenWidth, float screenHeight, FT_Face& face, Logger* logger) {
+TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, Logger* logger) {
     this->consoleLogger = logger;
     this->fontFace = face;
     this->projectionMatrix = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
@@ -39,7 +39,7 @@ TextRenderer2D::TextRenderer2D(float screenWidth, float screenHeight, FT_Face& f
 
 }
 
-void TextRenderer2D::checkCompileErrors(unsigned int shader, ShaderType type) {
+void TextBoxRenderer::checkCompileErrors(unsigned int shader, ShaderType type) {
     int success;
     char infoLog[1024];
     switch (type) {
@@ -70,7 +70,7 @@ void TextRenderer2D::checkCompileErrors(unsigned int shader, ShaderType type) {
 }
 
 
-void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool debug) {
+void TextBoxRenderer::renderCenteredText(std::string* text, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool debug) {
     if (debug) {
         drawDebugLines(boxX, boxY, width, height);
     }
@@ -129,7 +129,7 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
             continue;
         }
 
-        std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
+        std::map<int, TextBoxRenderer::Character>::iterator characterIt = characterCache.find(charCode);
 
         if (characterIt == characterCache.end()) {
             // cache miss --> generate texture
@@ -180,7 +180,7 @@ void TextRenderer2D::renderCenteredText(std::string* text, float boxX, float box
 
 }
 
-void TextRenderer2D::generateAndAddCharacter(int charCode) {
+void TextBoxRenderer::generateAndAddCharacter(int charCode) {
     int freeTypeError;
     unsigned int glyphIndex = FT_Get_Char_Index(fontFace, charCode);
     freeTypeError = FT_Load_Glyph(fontFace, glyphIndex, FT_LOAD_DEFAULT);
@@ -227,7 +227,7 @@ void TextRenderer2D::generateAndAddCharacter(int charCode) {
     characterCache.insert(std::pair<int, Character>(charCode, character));
 }
 
-void TextRenderer2D::addNewLineToString(std::string& str, int pos, bool breakAtSpace) {
+void TextBoxRenderer::addNewLineToString(std::string& str, int pos, bool breakAtSpace) {
     char newLine = '\n';
 
     char* strAsCString = (char*)str.c_str();
@@ -268,7 +268,7 @@ void TextRenderer2D::addNewLineToString(std::string& str, int pos, bool breakAtS
     str.insert(insertIterator - str.begin(), newLineString);
 }
 
-bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Lines& lines) {
+bool TextBoxRenderer::adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Lines& lines) {
     // measure text
     int numberOfCharacters = utf8::distance(input.begin(), input.end());
 
@@ -294,7 +294,7 @@ bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY
             int charCode = utf8::next(iterator, modifiedText.end());
 
             if (charCode != 10) {
-                std::map<int, TextRenderer2D::Character>::iterator characterIt = characterCache.find(charCode);
+                std::map<int, TextBoxRenderer::Character>::iterator characterIt = characterCache.find(charCode);
 
                 if (characterIt == characterCache.end()) {
                     // cache miss --> generate texture
@@ -377,7 +377,7 @@ bool TextRenderer2D::adjustTextForBox(std::string& input, float boxX, float boxY
     return textFitsInBox;
 }
 
-void TextRenderer2D::drawDebugLines(float boxX, float boxY, float width, float height) {
+void TextBoxRenderer::drawDebugLines(float boxX, float boxY, float width, float height) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 

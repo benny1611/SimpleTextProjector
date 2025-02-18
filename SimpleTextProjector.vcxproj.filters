@@ -44,7 +44,7 @@
     <ClInclude Include="src\WebSocketHandler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\TextRenderer2D.h">
+    <ClInclude Include="src\TextBoxRenderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -67,7 +67,7 @@
     <ClCompile Include="src\ScreenStreamerTask.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\TextRenderer2D.cpp">
+    <ClCompile Include="src\TextBoxRenderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\glad.c">

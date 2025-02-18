@@ -16,7 +16,7 @@
 #include "CustomErrorHandler.h"
 #include "Poco/Message.h"
 #include "Poco/TaskManager.h"
-#include "TextRenderer2D.h"
+#include "TextBoxRenderer.h"
 
 
 using Poco::ErrorHandler;
@@ -55,7 +55,7 @@ bool isServerRunning = false;
 int codePointsCount = 512;
 int loadFontSize = 256;
 GLFWmonitor** monitors;
-TextRenderer2D* renderer;
+TextBoxRenderer* renderer;
 
 void monitor_callback(GLFWmonitor* monitor, int event);
 unsigned char* loadFile(const std::string& filename, size_t& fileSize);
@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    renderer = new TextRenderer2D(defaultWidth, defaultHeight, fontFace, &consoleLogger);
+    renderer = new TextBoxRenderer(defaultWidth, defaultHeight, fontFace, &consoleLogger);
 
     bool drawDebugLines = pConf->getBool("DrawDebugLines", false);
     float fontSizeDecreaseStep = pConf->getDouble("FontSizeDecreaseStep", 5.0);
