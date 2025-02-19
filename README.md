@@ -55,7 +55,7 @@ Here's a JSON object example:
   "monitor": 0,
   "font_size": 35,
   "font": "JandaAppleCobbler",
-  "font_color": [
+  "text_color": [
     1,
     0,
     0
