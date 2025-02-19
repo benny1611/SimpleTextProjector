@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool wordWrap, Logger* logger) {
+TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, float lineSpacing, bool wordWrap, Logger* logger) {
     this->consoleLogger = logger;
     this->fontFace = face;
     this->projectionMatrix = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
@@ -14,6 +14,7 @@ TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face&
     this->_height = height;
     this->_desiredFontSize = desiredFontSize;
     this->_decreaseStep = decreaseStep;
+    this->_lineSpacing = lineSpacing;
     this->_wordWrap = wordWrap;
 
     // compile shaders
@@ -94,7 +95,7 @@ void TextBoxRenderer::renderCenteredText(std::string* text, bool debug) {
     } else {
         // cache miss, now measure the text and update cache
         modifiedText = *text;
-        isTextFittingInTheBox = adjustTextForBox(modifiedText, _boxX, _boxY, _width, _height, _desiredFontSize, _decreaseStep, lines);
+        isTextFittingInTheBox = adjustTextForBox(modifiedText, lines);
         cachedInput = *text;
         cachedModifiedText = modifiedText;
         cachedIsTextFittingInBox = isTextFittingInTheBox;
@@ -131,7 +132,7 @@ void TextBoxRenderer::renderCenteredText(std::string* text, bool debug) {
             if (currentLineNumber < lines.numberOfLines) {
                 x = _boxX + (_width / 2.0f) - (lines.lineWidths[currentLineNumber] / 2.0f);
                 int previousLineDescent = lines.lineHeights[currentLineNumber - 1] - lines.lineAscends[currentLineNumber - 1];
-                y = y - previousLineDescent - lines.lineAscends[currentLineNumber];
+                y = y - previousLineDescent - lines.lineAscends[currentLineNumber] - _lineSpacing;
             }
             continue;
         }
@@ -275,7 +276,7 @@ void TextBoxRenderer::addNewLineToString(std::string& str, int pos, bool wordWra
     str.insert(insertIterator - str.begin(), newLineString);
 }
 
-bool TextBoxRenderer::adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Lines& lines) {
+bool TextBoxRenderer::adjustTextForBox(std::string& input, Lines& lines) {
     // measure text
     int numberOfCharacters = utf8::distance(input.begin(), input.end());
 
@@ -312,7 +313,7 @@ bool TextBoxRenderer::adjustTextForBox(std::string& input, float boxX, float box
                 Character ch = (*characterIt).second;
 
                 textWidth += (ch.Advance >> 6);
-                if (textWidth > width) {
+                if (textWidth > _width) {
                     textWidthBiggerThanBoxWidth = true;
                     addNewLineToString(modifiedText, i, _wordWrap);
                     break;
@@ -327,7 +328,7 @@ bool TextBoxRenderer::adjustTextForBox(std::string& input, float boxX, float box
             } else {
                 if (_numberOfLines < 256) {
                     lines.lineWidths[_numberOfLines] = textWidth;
-                    if (textWidth > width) {
+                    if (textWidth > _width) {
                         textWidthBiggerThanBoxWidth = true;
                         addNewLineToString(modifiedText, i, _wordWrap);
                         break;
@@ -362,10 +363,12 @@ bool TextBoxRenderer::adjustTextForBox(std::string& input, float boxX, float box
             _totalTextHeight += lines.lineHeights[i];
         }
 
-        if (_totalTextHeight > height) {
-            if (desiredFontSize > decreaseStep) {
-                desiredFontSize -= decreaseStep;
-                FT_Set_Pixel_Sizes(fontFace, 0, desiredFontSize);
+        _totalTextHeight += (_numberOfLines - 1) * _lineSpacing;
+
+        if (_totalTextHeight > _height) {
+            if (_desiredFontSize > _decreaseStep) {
+                _desiredFontSize -= _decreaseStep;
+                FT_Set_Pixel_Sizes(fontFace, 0, _desiredFontSize);
                 characterCache.clear();
                 modifiedText = input;
                 continue;

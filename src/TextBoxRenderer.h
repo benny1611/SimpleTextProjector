@@ -9,7 +9,7 @@ using Poco::Logger;
 
 class TextBoxRenderer {
 public:
-    TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, bool wordWrap, Logger* logger);
+    TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, float lineSpacing, bool wordWrap, Logger* logger);
     ~TextBoxRenderer();
 
     void renderCenteredText(std::string* text, bool debug = false);
@@ -20,6 +20,7 @@ private:
     float _height;
     float _desiredFontSize;
     float _decreaseStep;
+    float _lineSpacing;
     bool _wordWrap;
 
     struct Character {
@@ -83,7 +84,7 @@ private:
 
     void checkCompileErrors(unsigned int shader, ShaderType type);
 
-    bool adjustTextForBox(std::string& input, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, Lines& lines);
+    bool adjustTextForBox(std::string& input, Lines& lines);
 
     static void addNewLineToString(std::string& str, int position, bool breakAtSpace);
 

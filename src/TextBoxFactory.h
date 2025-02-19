@@ -8,7 +8,7 @@ public:
 
 	void setScreenWidth(float screenWidth);
 	void setScreenHeight(float screenHeight);
-	TextBoxRenderer* createTextBox(std::string fontPath, float desiredFontSize, float boxX, float boxY, float width, float height, float fontSizeDecreaseStep, bool wordWrap);
+	TextBoxRenderer* createTextBox(std::string fontPath, float desiredFontSize, float boxX, float boxY, float width, float height, float fontSizeDecreaseStep, float lineSpacing, bool wordWrap);
 private:
 	float _screenWidth;
 	float _screenHeight;

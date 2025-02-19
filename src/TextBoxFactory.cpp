@@ -20,7 +20,7 @@ void TextBoxFactory::setScreenHeight(float screenHeight) {
 	this->_screenHeight = screenHeight;
 }
 
-TextBoxRenderer* TextBoxFactory::createTextBox(std::string fontPath, float desiredFontSize, float boxX, float boxY, float width, float height, float fontSizeDecreaseStep, bool wordWrap) {
+TextBoxRenderer* TextBoxFactory::createTextBox(std::string fontPath, float desiredFontSize, float boxX, float boxY, float width, float height, float fontSizeDecreaseStep, float lineSpacing, bool wordWrap) {
     size_t fontFileSize;
     const unsigned char* fontFileBuffer = loadFile(fontPath, fontFileSize);
     if (fontFileBuffer == nullptr) {
@@ -38,7 +38,7 @@ TextBoxRenderer* TextBoxFactory::createTextBox(std::string fontPath, float desir
 
     FT_Set_Pixel_Sizes(fontFace, 0, desiredFontSize);
 
-    return new TextBoxRenderer(_screenWidth, _screenHeight, fontFace, boxX, boxY, width, height, desiredFontSize, fontSizeDecreaseStep, wordWrap, _consoleLogger);
+    return new TextBoxRenderer(_screenWidth, _screenHeight, fontFace, boxX, boxY, width, height, desiredFontSize, fontSizeDecreaseStep, lineSpacing, wordWrap, _consoleLogger);
 }
 
 // Function to load the contents of a file into memory as unsigned char*
