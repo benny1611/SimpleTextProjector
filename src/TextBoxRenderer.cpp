@@ -397,21 +397,32 @@ void TextBoxRenderer::drawDebugLines(float boxX, float boxY, float width, float 
     glLineWidth(3.0f);
 
     glBegin(GL_LINES);
-    glVertex2f(boxX, (boxY + height) / 2);
-    glVertex2f(boxX + width, (boxY + height) / 2);
+    glVertex2f(boxX, boxY + (height / 2));
+    glVertex2f(boxX + width, boxY + (height / 2));
     glEnd();
 
     glBegin(GL_LINES);
-    glVertex2f((boxX + width) / 2, boxY);
-    glVertex2f((boxX + width) / 2, boxY + height);
+    glVertex2f(boxX + (width / 2), boxY);
+    glVertex2f(boxX + (width / 2), boxY + height);
     glEnd();
 
 
     glBegin(GL_LINES);
     glVertex2f(boxX, boxY);
     glVertex2d(boxX + width, boxY); 
+    glEnd();
+
+    glBegin(GL_LINES);
+    glVertex2d(boxX + width, boxY);
+    glVertex2f(boxX + width, boxY + height);
+    glEnd();
+
+    glBegin(GL_LINES);
     glVertex2f(boxX + width, boxY + height);
     glVertex2f(boxX, boxY + height);
+    glEnd();
+
+    glBegin(GL_LINES);
     glVertex2f(boxX, boxY + height);
     glVertex2f(boxX, boxY);
     glEnd();

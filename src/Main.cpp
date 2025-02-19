@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
 
     TextBoxFactory* textBoxFactory = new TextBoxFactory(defaultWidth, defaultHeight, &consoleLogger);
 
-    TextBoxRenderer* renderer = textBoxFactory->createTextBox(fontPath, 72.0f, 0, 0, defaultWidth, defaultHeight, fontSizeDecreaseStep, 0, true);
+    TextBoxRenderer* renderer = textBoxFactory->createTextBox(fontPath, 72.0f, defaultWidth / 4, defaultHeight / 4, defaultWidth / 2, defaultHeight / 2, fontSizeDecreaseStep, 5, true);
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
