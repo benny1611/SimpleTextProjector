@@ -7,6 +7,7 @@
 #include "Poco/Net/HTTPRequestHandlerFactory.h"
 #include "Poco/Task.h"
 #include "WebSocketHandler.h"
+#include "HandlerList.h"
 
 using Poco::Util::OptionSet;
 using Poco::Net::HTTPRequestHandler;
@@ -31,6 +32,7 @@ protected:
 	int main(const std::vector<std::string>& args);
 private:
 	HTTPServer* srv;
+	HandlerList* handlers;
 };
 
 class HTTPCommandRequestHandler : public HTTPRequestHandler {
@@ -41,16 +43,19 @@ class HTTPCommandRequestHandler : public HTTPRequestHandler {
 
 class HTTPCommandRequestHandlerFactory : public HTTPRequestHandlerFactory {
 public:
-	HTTPCommandRequestHandlerFactory() {
+	HTTPCommandRequestHandlerFactory(HandlerList* handlers) {
+		this->handlers = handlers;
 	}
 	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) {
 		if (request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0) {
-			return new WebSocketRequestHandler();
+			return new WebSocketRequestHandler(handlers);
 		}
 		else {
 			return new HTTPCommandRequestHandler();
 		}
 	}
+private:
+	HandlerList* handlers;
 };
 
 class HTTPServerTask : public Poco::Task {

@@ -39,7 +39,7 @@ Here are all the possible commands so far:
 - ```monitor``` - ```int``` the index of the monitor, starting with 0 (1 for secondary monitor, 2 for the third and so on).
 - ```font_size``` - ```int``` size in pixels of the font.
 - ```font``` - ```string``` name of the ```.ttf``` file that must be present in the ```fonts``` folder.
-- ```text_color``` - ```int array``` of size 3, with the first element representing the color RED (between 0.0 and 1.0), the second element representing the color GREEN (between 0.0 and 1.0), the third representing BLUE (between 0.0 and 1.0). You can use a combination of those to achieve your desired color (RGB).
+- ```font_color``` - ```int array``` of size 3, with the first element representing the color RED (between 0.0 and 1.0), the second element representing the color GREEN (between 0.0 and 1.0), the third representing BLUE (between 0.0 and 1.0). You can use a combination of those to achieve your desired color (RGB).
 - ```stream``` boolean value start or stop streaming
 - ```get``` get different values from the server, possible values so far:
   - ```stream``` returns if the server is streaming or not or and if it's streaming, then it returns the offer for the WebRTC client. Example: ```{"isStreaming": true, "offer": {....}}```
@@ -55,7 +55,7 @@ Here's a JSON object example:
   "monitor": 0,
   "font_size": 35,
   "font": "JandaAppleCobbler",
-  "text_color": [
+  "font_color": [
     1,
     0,
     0

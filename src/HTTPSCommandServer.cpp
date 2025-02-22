@@ -5,10 +5,13 @@ void runServer(void* arg);
 HTTPSCommandServer::HTTPSCommandServer() {
 	Poco::Net::initializeSSL();
 	initialize(*this);
+	Application& app = Application::instance();
+	handlers = new HandlerList(&app.logger());
 }
 
 HTTPSCommandServer::~HTTPSCommandServer() {
 	Poco::Net::uninitializeSSL();
+	delete handlers;
 	delete this;
 }
 
@@ -37,7 +40,7 @@ int HTTPSCommandServer::main(const std::vector<std::string>& args) {
 	// set-up a server socket
 	SecureServerSocket svs(port);
 	// set-up a HTTPServer instance
-	srv = new HTTPServer(new HTTPSCommandRequestHandlerFactory(), svs, new HTTPServerParams);
+	srv = new HTTPServer(new HTTPSCommandRequestHandlerFactory(handlers), svs, new HTTPServerParams);
 	// start the HTTPServer
 	srv->start();
 	// wait for CTRL-C or kill

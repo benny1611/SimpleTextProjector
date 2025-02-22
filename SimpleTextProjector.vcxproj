@@ -152,6 +152,8 @@
     <None Include="SimpleTextProjector.properties" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\HandlerList.h" />
+    <ClInclude Include="src\Handlers.h" />
     <ClInclude Include="src\CommandRequestHandler.h" />
     <ClInclude Include="src\CustomErrorHandler.h" />
     <ClInclude Include="src\HTTPCommandServer.h" />
@@ -164,6 +166,7 @@
     <ClInclude Include="src\TextBoxFactory.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\HandlerList.cpp" />
     <ClCompile Include="src\CommandRequestHandler.cpp" />
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\HTTPCommandServer.cpp" />

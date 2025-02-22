@@ -9,6 +9,7 @@
 #include "Poco/Util/ServerApplication.h"
 #include "CommandRequestHandler.h"
 #include "SharedVariables.h"
+#include "HandlerList.h"
 
 using Poco::Net::WebSocket;
 using Poco::Net::WebSocketException;
@@ -21,21 +22,11 @@ using Poco::Exception;
 
 
 class WebSocketRequestHandler : public HTTPRequestHandler {
-	/// Handle a WebSocket connection.
-private:
-	WebSocket* ws;
-	void deleteWS() {
-		clientSetMutex.lock();
-		if (clients.count(*ws)) {
-			clients.erase(*ws);
-		}
-		clientSetMutex.unlock();
-		ws->close();
-		free(ws);
-		Application& app = Application::instance();
-		app.logger().information("WebSocket connection closed after timeout");
-	}
 public:
+	/// Handle a WebSocket connection.
+	WebSocketRequestHandler(HandlerList* handlers) {
+		this->handlers = handlers;
+	};
 	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) {
 		Application& app = Application::instance();
 		try {
@@ -62,7 +53,7 @@ public:
 					if (n != 15 && flags != 0x81) { // ignore ping/pong
 						app.logger().information(jsonCommand);
 					}
-					handleCommand(jsonCommand, *ws);
+					handleCommand(jsonCommand, *ws, handlers);
 				}
 			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
 
@@ -88,5 +79,19 @@ public:
 		} catch (Exception& exp) {
 			deleteWS();
 		}
+	}
+private:
+	HandlerList* handlers;
+	WebSocket* ws;
+	void deleteWS() {
+		clientSetMutex.lock();
+		if (clients.count(*ws)) {
+			clients.erase(*ws);
+		}
+		clientSetMutex.unlock();
+		ws->close();
+		free(ws);
+		Application& app = Application::instance();
+		app.logger().information("WebSocket connection closed after timeout");
 	}
 };
