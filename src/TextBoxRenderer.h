@@ -12,7 +12,7 @@ public:
     TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, float lineSpacing, bool wordWrap, Logger* logger);
     ~TextBoxRenderer();
 
-    void renderCenteredText(std::string* text, bool debug = false);
+    void renderCenteredText(std::string* text, float colorR, float colorG, float colorB, float colorA, bool debug = false);
 private:
     float _boxX;
     float _boxY;

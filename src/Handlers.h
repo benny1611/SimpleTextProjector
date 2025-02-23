@@ -29,7 +29,7 @@ void handleText(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 void handleFontColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	std::string error = "";
 	std::string errorMessage = "{\"error\": true, \"message\": \"Error: the color must be a JSON object in the form: font_color: R: <value>, G: <value>, B: <value>, A: <value>, all values are unsigned chars\"} ";
-	Object::Ptr colorObj = jsonObject->get("text_color").extract<Object::Ptr>();
+	Object::Ptr colorObj = jsonObject->get("font_color").extract<Object::Ptr>();
 	if (!colorObj->has("R") || !colorObj->has("G") || !colorObj->has("B") || !colorObj->has("A")) {
 		error = errorMessage;
 	}
@@ -37,19 +37,24 @@ void handleFontColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger
 		ws.sendFrame(error.c_str(), error.length());
 		return;
 	}
-	unsigned char R;
-	unsigned char G;
-	unsigned char B;
-	unsigned char A;
+	float R;
+	float G;
+	float B;
+	float A;
 	try {
-		R = colorObj->getValue<unsigned char>("R");
-		G = colorObj->getValue<unsigned char>("G");
-		B = colorObj->getValue<unsigned char>("B");
-		A = colorObj->getValue<unsigned char>("A");
+		R = colorObj->getValue<float>("R");
+		G = colorObj->getValue<float>("G");
+		B = colorObj->getValue<float>("B");
+		A = colorObj->getValue<float>("A");
 	}
 	catch (Exception e) {
-		error = errorMessage;
+		error = "{\"error\": true, \"message\": \"" + errorMessage + "\"}";
 	}
+	
+	if (R < 0 || R > 1.0 || G < 0 || G > 1.0 || B < 0 || B > 1.0 || A < 0 || A > 1.0) {
+		error = "{\"error\": true, \"message\": \"Values R, G, B and A must be between a float between 0.0 and 1.0\"}";
+	}
+
 	if (!error.empty()) {
 		ws.sendFrame(error.c_str(), error.length());
 		return;

@@ -39,7 +39,7 @@ Here are all the possible commands so far:
 - ```monitor``` - ```int``` the index of the monitor, starting with 0 (1 for secondary monitor, 2 for the third and so on).
 - ```font_size``` - ```int``` size in pixels of the font.
 - ```font``` - ```string``` name of the ```.ttf``` file that must be present in the ```fonts``` folder.
-- ```font_color``` - ```int array``` of size 3, with the first element representing the color RED (between 0.0 and 1.0), the second element representing the color GREEN (between 0.0 and 1.0), the third representing BLUE (between 0.0 and 1.0). You can use a combination of those to achieve your desired color (RGB).
+- ```font_color``` - ```JSON Object``` This object must define values (between 0.0 and 1.0) for each colors: R (RED), G (GREEN), B(BLUE) and A(ALPHA). Example: ```{"font_color": {"R": 1.0, "G": 0.0, "B": 0.0, "A": 1.0 } }```
 - ```stream``` boolean value start or stop streaming
 - ```get``` get different values from the server, possible values so far:
   - ```stream``` returns if the server is streaming or not or and if it's streaming, then it returns the offer for the WebRTC client. Example: ```{"isStreaming": true, "offer": {....}}```
@@ -74,6 +74,7 @@ This software uses libraries from the FFmpeg project under the LGPLv2.1. I do *N
 - [poco](https://pocoproject.org/)
 - [FFmpeg](https://www.ffmpeg.org)
 - [libwebrtc](https://github.com/webrtc-sdk/libwebrtc)
+- [utfcpp](https://github.com/nemtrif/utfcpp)
 
 ## License
 

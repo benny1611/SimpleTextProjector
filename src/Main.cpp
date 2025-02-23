@@ -43,10 +43,10 @@ ScreenStreamerTask* screenStreamerTask;
 
 std::string* text = new std::string("Welcome to SimpleTextProjector");
 
-unsigned char textColorR = 0xFF;
-unsigned char textColorG = 0xFF;
-unsigned char textColorB = 0xFF;
-unsigned char textColorA = 0xFF;
+float textColorR = 1.0;
+float textColorG = 1.0;
+float textColorB = 1.0;
+float textColorA = 1.0;
 std::string fontPath = "fonts/Raleway.ttf";
 float fontSize = 72.0f;
 float baseSize = fontSize;
@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         textMutex.lock();
-        renderer->renderCenteredText(text, drawDebugLines);
+        renderer->renderCenteredText(text, textColorR, textColorG, textColorB, textColorA, drawDebugLines);
         textMutex.unlock();
 
         /* Swap buffers */

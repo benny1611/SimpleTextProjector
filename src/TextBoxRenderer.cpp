@@ -78,7 +78,7 @@ void TextBoxRenderer::checkCompileErrors(unsigned int shader, ShaderType type) {
 }
 
 
-void TextBoxRenderer::renderCenteredText(std::string* text, bool debug) {
+void TextBoxRenderer::renderCenteredText(std::string* text, float colorR, float colorG, float colorB, float colorA, bool debug) {
     if (debug) {
         drawDebugLines(_boxX, _boxY, _width, _height);
     }
@@ -111,7 +111,7 @@ void TextBoxRenderer::renderCenteredText(std::string* text, bool debug) {
 
     glUseProgram(shaderID);
     int colorLocation = glGetUniformLocation(shaderID, "textColor");
-    glUniform4f(colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
+    glUniform4f(colorLocation, colorR, colorG, colorB, colorA);
 
     unsigned int projectionLocation = glGetUniformLocation(shaderID, "projection");
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
@@ -402,6 +402,7 @@ void TextBoxRenderer::drawDebugLines(float boxX, float boxY, float width, float 
     glEnd();
 
     glBegin(GL_LINES);
+    glColor3f(1.0f, 1.0f, 1.0f);
     glVertex2f(boxX + (width / 2), boxY);
     glVertex2f(boxX + (width / 2), boxY + height);
     glEnd();
