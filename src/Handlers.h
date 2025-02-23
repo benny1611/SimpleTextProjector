@@ -15,13 +15,14 @@ void handleText(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	oss << decoder.rdbuf();
 
 	std::string decoded = oss.str();
+	// TODO: when the implementation of multiple renderers is done, find the right renderer instead of taking the renderer with the ID = 1
+	TextBoxRenderer* renderer = renderers[1];
 
 	textMutex.lock();
-	if (decoded != *text) {
-		delete text;
-		text = new std::string(decoded);
+	if (decoded != renderer->getText()) {
+		renderer->setText(decoded);
 
-		consoleLogger->debug("Here's your decoded text: {}", *text);
+		consoleLogger->debug("Here's your decoded text: {}", decoded);
 	}
 	textMutex.unlock();
 }
@@ -37,10 +38,7 @@ void handleFontColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger
 		ws.sendFrame(error.c_str(), error.length());
 		return;
 	}
-	float R;
-	float G;
-	float B;
-	float A;
+	float R, G, B, A;
 	try {
 		R = colorObj->getValue<float>("R");
 		G = colorObj->getValue<float>("G");
@@ -52,7 +50,7 @@ void handleFontColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger
 	}
 	
 	if (R < 0 || R > 1.0 || G < 0 || G > 1.0 || B < 0 || B > 1.0 || A < 0 || A > 1.0) {
-		error = "{\"error\": true, \"message\": \"Values R, G, B and A must be between a float between 0.0 and 1.0\"}";
+		error = "{\"error\": true, \"message\": \"Values R, G, B and A must be a float between 0.0 and 1.0\"}";
 	}
 
 	if (!error.empty()) {
@@ -60,11 +58,11 @@ void handleFontColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger
 		return;
 	}
 
+	// TODO: when the implementation of multiple renderers is done, find the right renderer instead of taking the renderer with the ID = 1
+	TextBoxRenderer* renderer = renderers[1];
+
 	textMutex.lock();
-	textColorR = R;
-	textColorG = G;
-	textColorB = B;
-	textColorA = A;
+	renderer->setColor(R, G, B, A);
 	textMutex.unlock();
 	consoleLogger->information("Here's your color: R: " + std::to_string(R) + ", G:" + std::to_string(G) + ", B: " + std::to_string(B) + ", A:" + std::to_string(A));
 }
@@ -72,8 +70,11 @@ void handleFontColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger
 void handleFontSize(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	float fontSizeValue = jsonObject->getValue<float>("font_size");
 	if (fontSizeValue > 0) {
+		// TODO: when the implementation of multiple renderers is done, find the right renderer instead of taking the renderer with the ID = 1
+		TextBoxRenderer* renderer = renderers[1];
+
 		textMutex.lock();
-		fontSize = fontSizeValue;
+		renderer->setFontSize(fontSizeValue);
 		textMutex.unlock();
 	} else {
 		std::string error = "{\"error\": true, \"message\": \"Error: could not set font size to: " + std::to_string(fontSizeValue) + "\"}";
@@ -84,19 +85,25 @@ void handleFontSize(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger)
 
 void handleFont(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	std::string fontPathValue = jsonObject->getValue<std::string>("font");
+	std::string last4Characters = fontPathValue.substr(fontPathValue.size() - 4);
+	if (last4Characters != ".ttf") {
+		fontPathValue += ".ttf";
+	}
 	consoleLogger->debug("Here is the font: {}", fontPathValue);
 
 	std::string fontFullPath = "fonts/" + fontPathValue;
 
-	std::string result = "";
+	// TODO: when the implementation of multiple renderers is done, find the right renderer instead of taking the renderer with the ID = 1
+	TextBoxRenderer* renderer = renderers[1];
 
 	textMutex.lock();
-	if (fontFullPath != fontPath) {
+	if (fontFullPath != renderer->getFontPath()) {
 		try {
 			std::ifstream file(fontFullPath);
 			if (file.is_open()) {
 				file.close();
-				fontPath = fontFullPath;
+				
+				renderer->setFont(fontFullPath);
 			}
 			else {
 				std::string error = "{\"error\": true, \"message\": \"Error file " + fontFullPath + " not found\"}";

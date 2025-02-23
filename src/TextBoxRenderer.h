@@ -9,10 +9,23 @@ using Poco::Logger;
 
 class TextBoxRenderer {
 public:
-    TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, float lineSpacing, bool wordWrap, Logger* logger);
-    ~TextBoxRenderer();
+    TextBoxRenderer(float screenWidth, float screenHeight, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, float lineSpacing, float colorR, float colorG, float colorB, float colorA, std::string fontPath, bool wordWrap, Logger* logger, FT_Library& freeTypeLibrary);
+    
+    TextBoxRenderer(float screenWidth, float screenHeight, float boxX, float boxY, float width, float height, Logger* logger, FT_Library& freeTypeLibrary);
+    //~TextBoxRenderer();
 
-    void renderCenteredText(std::string* text, float colorR, float colorG, float colorB, float colorA, bool debug = false);
+    void renderCenteredText(bool debug = false);
+    void setText(std::string text);
+    void setColor(float colorR, float colorG, float colorB, float colorA);
+    void setBoxPosition(float boxX, float boxY);
+    void setBoxSize(float width, float height);
+    void setFontSize(float desiredFontSize, float decreaseStep = 5.0);
+    void setLineSpacing(float lineSpacing);
+    void setWordWrap(bool wordWrap);
+    void setFont(std::string fontPath);
+    void setScreenSize(float screenWidth, float screenHeight);
+    std::string getText();
+    std::string getFontPath();
 private:
     float _boxX;
     float _boxY;
@@ -21,7 +34,13 @@ private:
     float _desiredFontSize;
     float _decreaseStep;
     float _lineSpacing;
+    float _colorR;
+    float _colorG; 
+    float _colorB;
+    float _colorA;
     bool _wordWrap;
+    std::string _text;
+    std::string _fontPath;
 
     struct Character {
         unsigned int TextureID; // ID handle of the glyph texture
@@ -40,6 +59,7 @@ private:
     };
 
     Logger* consoleLogger;
+    FT_Library _freeTypeLibrary;
     FT_Face fontFace;
     glm::mat4 projectionMatrix;
     unsigned int shaderID;
@@ -89,5 +109,11 @@ private:
     static void addNewLineToString(std::string& str, int position, bool breakAtSpace);
 
     void drawDebugLines(float boxX, float boxY, float width, float height);
+
+    unsigned char* loadFile(const std::string& filename, size_t& fileSize);
+
+    void loadFontFace(std::string fontPath);
+
+    void clearCache();
 };
 

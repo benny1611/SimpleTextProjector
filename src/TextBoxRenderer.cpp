@@ -1,12 +1,16 @@
-#include "TextBoxRenderer.h"
-#include "utf8.h"
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <fstream>
+#include "TextBoxRenderer.h"
+#include "utf8.h"
 
-TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face& face, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, float lineSpacing, bool wordWrap, Logger* logger) {
+TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, float boxX, float boxY, float width, float height, Logger* logger, FT_Library& freeTypeLibrary): 
+    TextBoxRenderer(screenWidth, screenHeight, boxX, boxY, width, height, 72.0f, 5.0f, 5.0f, 1, 1, 1, 1, "fonts/Raleway.ttf", true, logger, freeTypeLibrary) {
+}
+
+TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, float boxX, float boxY, float width, float height, float desiredFontSize, float decreaseStep, float lineSpacing, float colorR, float colorG, float colorB, float colorA, std::string fontPath, bool wordWrap, Logger* logger, FT_Library& freeTypeLibrary) {
     this->consoleLogger = logger;
-    this->fontFace = face;
     this->projectionMatrix = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
     this->_boxX = boxX;
     this->_boxY = boxY;
@@ -16,6 +20,14 @@ TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, FT_Face&
     this->_decreaseStep = decreaseStep;
     this->_lineSpacing = lineSpacing;
     this->_wordWrap = wordWrap;
+    this->_freeTypeLibrary = freeTypeLibrary;
+    this->_colorR = colorR;
+    this->_colorG = colorG;
+    this->_colorB = colorB;
+    this->_colorA = colorA;
+    this->_fontPath = fontPath;
+
+    loadFontFace(fontPath);
 
     // compile shaders
     unsigned int vertex;
@@ -78,7 +90,7 @@ void TextBoxRenderer::checkCompileErrors(unsigned int shader, ShaderType type) {
 }
 
 
-void TextBoxRenderer::renderCenteredText(std::string* text, float colorR, float colorG, float colorB, float colorA, bool debug) {
+void TextBoxRenderer::renderCenteredText(bool debug) {
     if (debug) {
         drawDebugLines(_boxX, _boxY, _width, _height);
     }
@@ -87,16 +99,16 @@ void TextBoxRenderer::renderCenteredText(std::string* text, float colorR, float 
     Lines lines;
     bool isTextFittingInTheBox;
 
-    if (cachedInput == *text) {
+    if (cachedInput == _text) {
         // cache hit, no need to measure text & all
         modifiedText = cachedModifiedText;
         isTextFittingInTheBox = cachedIsTextFittingInBox;
         lines = cachedLines;
     } else {
         // cache miss, now measure the text and update cache
-        modifiedText = *text;
+        modifiedText = _text;
         isTextFittingInTheBox = adjustTextForBox(modifiedText, lines);
-        cachedInput = *text;
+        cachedInput = _text;
         cachedModifiedText = modifiedText;
         cachedIsTextFittingInBox = isTextFittingInTheBox;
         cachedLines = lines;
@@ -111,7 +123,7 @@ void TextBoxRenderer::renderCenteredText(std::string* text, float colorR, float 
 
     glUseProgram(shaderID);
     int colorLocation = glGetUniformLocation(shaderID, "textColor");
-    glUniform4f(colorLocation, colorR, colorG, colorB, colorA);
+    glUniform4f(colorLocation, _colorR, _colorG, _colorB, _colorA);
 
     unsigned int projectionLocation = glGetUniformLocation(shaderID, "projection");
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
@@ -432,4 +444,114 @@ void TextBoxRenderer::drawDebugLines(float boxX, float boxY, float width, float 
 
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
+}
+
+
+void TextBoxRenderer::loadFontFace(std::string fontPath) {
+    size_t fontFileSize;
+    const unsigned char* fontFileBuffer = loadFile(fontPath, fontFileSize);
+    if (fontFileBuffer == nullptr) {
+        consoleLogger->error("Could not load font file " + fontPath + " into memory");
+        exit(1);
+    }
+
+    FT_Face fontFace;
+    int freeTypeError = FT_New_Memory_Face(_freeTypeLibrary, fontFileBuffer, fontFileSize, 0, &fontFace);
+
+    if (freeTypeError) {
+        consoleLogger->error("Error loading the font from memory. Error code: " + freeTypeError);
+        exit(1);
+    }
+
+    FT_Set_Pixel_Sizes(fontFace, 0, _desiredFontSize);
+
+    FT_Done_Face(this->fontFace);
+
+    this->fontFace = fontFace;
+}
+
+
+unsigned char* TextBoxRenderer::loadFile(const std::string& filename, size_t& fileSize) {
+    // Open the file in binary mode
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
+
+    // Check if the file was successfully opened
+    if (!file.is_open()) {
+        return nullptr;
+    }
+
+    // Get the size of the file
+    fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Allocate memory to hold the file contents
+    unsigned char* buffer = new unsigned char[fileSize];
+
+    // Read the file contents into the buffer
+    if (file.read(reinterpret_cast<char*>(buffer), fileSize)) {
+        return buffer;
+    }
+    else {
+        delete[] buffer;
+        return nullptr;
+    }
+}
+
+void TextBoxRenderer::setText(std::string text) {
+    this->_text = text;
+}
+
+void TextBoxRenderer::setColor(float colorR, float colorG, float colorB, float colorA) {
+    this->_colorR = colorR;
+    this->_colorG = colorG;
+    this->_colorB = colorB;
+    this->_colorA = colorA;
+}
+
+void TextBoxRenderer::setBoxPosition(float boxX, float boxY) {
+    this->_boxX = boxX;
+    this->_boxY = boxY;
+}
+
+void TextBoxRenderer::setBoxSize(float width, float height) {
+    this->_width = width;
+    this->_height = height;
+}
+
+void TextBoxRenderer::setFontSize(float desiredFontSize, float decreaseStep) {
+    this->_desiredFontSize = desiredFontSize;
+    this->_decreaseStep = decreaseStep;
+    FT_Set_Pixel_Sizes(fontFace, 0, _desiredFontSize);
+    clearCache();
+}
+
+void TextBoxRenderer::setLineSpacing(float lineSpacing) {
+    this->_lineSpacing = lineSpacing;
+}
+
+void TextBoxRenderer::setWordWrap(bool wordWrap) {
+    this->_wordWrap = wordWrap;
+}
+
+void TextBoxRenderer::setFont(std::string fontPath) {
+    this->_fontPath = fontPath;
+    loadFontFace(fontPath);
+    clearCache();
+}
+
+void TextBoxRenderer::setScreenSize(float screenWidth, float screenHeight) {
+    this->projectionMatrix = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
+}
+
+std::string TextBoxRenderer::getText() {
+    return this->_text;
+}
+
+std::string TextBoxRenderer::getFontPath() {
+    return this->_fontPath;
+}
+
+void TextBoxRenderer::clearCache() {
+    this->characterCache.clear();
+    this->cachedInput.clear();
 }

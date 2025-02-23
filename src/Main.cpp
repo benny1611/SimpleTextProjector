@@ -15,8 +15,7 @@
 #include "CustomErrorHandler.h"
 #include "Poco/Message.h"
 #include "Poco/TaskManager.h"
-#include "TextBoxFactory.h"
-
+#include "TextBoxRenderer.h"
 
 using Poco::ErrorHandler;
 using Poco::AutoPtr;
@@ -27,36 +26,25 @@ using Poco::FormattingChannel;
 using Poco::ConsoleChannel;
 using Poco::Message;
 
-float defaultWidth = 800;
-float defaultHeight = 450;
-
-int currentScreenHeight;
-int currentScreenWidth;
-int currentMonitor = -1;
-
-std::set<WebSocket> clients;
+// Shared variables
 Mutex textMutex;
 Mutex clientSetMutex;
 Mutex streamingServerMutex;
 Poco::TaskManager* taskManager;
 ScreenStreamerTask* screenStreamerTask;
-
-std::string* text = new std::string("Welcome to SimpleTextProjector");
-
-float textColorR = 1.0;
-float textColorG = 1.0;
-float textColorB = 1.0;
-float textColorA = 1.0;
-std::string fontPath = "fonts/Raleway.ttf";
-float fontSize = 72.0f;
-float baseSize = fontSize;
+std::set<WebSocket> clients;
 bool isServerRunning = false;
-int codePointsCount = 512;
-int loadFontSize = 256;
+std::map<int, TextBoxRenderer*> renderers;
+
+
+// Other variables for main
+float defaultWidth = 800;
+float defaultHeight = 450;
+
 GLFWmonitor** monitors;
+FT_Library freeTypeLibrary;
 
 void monitor_callback(GLFWmonitor* monitor, int event);
-unsigned char* loadFile(const std::string& filename, size_t& fileSize);
 
 int main(int argc, char** argv) {
     CustomErrorHandler ceh;
@@ -139,9 +127,17 @@ int main(int argc, char** argv) {
     bool drawDebugLines = pConf->getBool("DrawDebugLines", false);
     float fontSizeDecreaseStep = pConf->getDouble("FontSizeDecreaseStep", 5.0);
 
-    TextBoxFactory* textBoxFactory = new TextBoxFactory(defaultWidth, defaultHeight, &consoleLogger);
 
-    TextBoxRenderer* renderer = textBoxFactory->createTextBox(fontPath, 72.0f, defaultWidth / 4, defaultHeight / 4, defaultWidth / 2, defaultHeight / 2, fontSizeDecreaseStep, 5, true);
+    // Initialize freetype
+    int freeTypeError = FT_Init_FreeType(&freeTypeLibrary);
+    if (freeTypeError) {
+        consoleLogger.error("FreeType init failed with error code: " + freeTypeError);
+        exit(1);
+    }
+    TextBoxRenderer* renderer = new TextBoxRenderer(defaultWidth, defaultHeight, defaultWidth / 4, defaultHeight / 4, defaultWidth / 2, defaultHeight / 2, &consoleLogger, freeTypeLibrary);
+    //renderer->setText("Welcome to SimpleTextProjector");
+    std::pair<int, TextBoxRenderer*> rendererPair(1, renderer);
+    renderers.insert(rendererPair);
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -151,7 +147,7 @@ int main(int argc, char** argv) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         textMutex.lock();
-        renderer->renderCenteredText(text, textColorR, textColorG, textColorB, textColorA, drawDebugLines);
+        renderer->renderCenteredText(drawDebugLines);
         textMutex.unlock();
 
         /* Swap buffers */
@@ -177,6 +173,8 @@ int main(int argc, char** argv) {
     else {
         streamingServerMutex.unlock();
     }
+
+    FT_Done_FreeType(freeTypeLibrary);
 
     return 0;
 
