@@ -10,12 +10,12 @@ void ScreenStreamerTask::runTask() {
 	this->screenStreamer->startSteaming();
 }
 
-void ScreenStreamerTask::registerReceiver(WebSocket& client, Event* offerEvent) {
-	this->screenStreamer->registerReceiver(client, offerEvent);
+int ScreenStreamerTask::registerReceiver(WebSocket& client, Event* offerEvent) {
+	return this->screenStreamer->registerReceiver(client, offerEvent);
 }
 
-std::string ScreenStreamerTask::getOffer(WebSocket& client) {
-	return this->screenStreamer->getOffer(client);
+std::string ScreenStreamerTask::getOffer(int receiverId) {
+	return this->screenStreamer->getOffer(receiverId);
 }
 
 int ScreenStreamerTask::setAnswer(WebSocket& client, Object::Ptr answer) {

@@ -156,16 +156,17 @@ void handleStream(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 
 void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	std::string what = jsonObject->getValue<std::string>("get");
+	consoleLogger->information("Getting: " + what);
 	if (what == "stream") {
 		streamingServerMutex.lock();
 		std::string isStreamingJSON = "{\"isStreaming\":";
 		if (isServerRunning) {
 			streamingServerMutex.unlock();
 			Event waitForOfferEvent;
-			screenStreamerTask->registerReceiver(ws, &waitForOfferEvent);
+			int receiverID = screenStreamerTask->registerReceiver(ws, &waitForOfferEvent);
 			waitForOfferEvent.wait();
 			isStreamingJSON += "true, \"offer\": ";
-			isStreamingJSON += screenStreamerTask->getOffer(ws);
+			isStreamingJSON += screenStreamerTask->getOffer(receiverID);
 		}
 		else {
 			streamingServerMutex.unlock();
@@ -179,10 +180,12 @@ void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 		std::string pong = "{\"pong\": true}";
 		ws.sendFrame(pong.c_str(), pong.length());
 	}
+	consoleLogger->information("Done getting");
 }
 
 void handleSet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	std::string what = jsonObject->getValue<std::string>("set");
+	consoleLogger->information("Setting: " + what);
 	if (what == "answer") {
 		if (jsonObject->has("answer")) {
 			Object::Ptr answer = jsonObject->get("answer").extract<Object::Ptr>();
@@ -196,4 +199,5 @@ void handleSet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 			streamingServerMutex.unlock();
 		}
 	}
+	consoleLogger->information("Done setting");
 }

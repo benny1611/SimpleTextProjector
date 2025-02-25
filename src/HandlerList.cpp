@@ -9,6 +9,7 @@ HandlerList::HandlerList(Logger* consoleLogger) {
 	registerHandler("font", handleFont);
 	registerHandler("stream", handleStream);
 	registerHandler("get", handleGet);
+	registerHandler("set", handleSet);
 }
 
 HandlerList::~HandlerList() {

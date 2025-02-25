@@ -76,23 +76,13 @@ struct Receiver {
 	WebSocket* client;
 	std::string offer;
 	bool isConnected = false;
+	int id;
 };
 
 class ScreenStreamer {
-private:
-	bool shouldStream = false;
-	const rtc::SSRC ssrc = 42;
-	Task* task;
-	Mutex* mutex;
-	Event* stopEvent;
-	Logger* appLogger;
-	std::set <std::shared_ptr<Receiver>> receivers;
-	void getReceiver(const WebSocket& client, std::shared_ptr<Receiver>& recv);
-	std::string peerStateToString(rtc::PeerConnection::State state);
-	std::string gatheringStateToString(rtc::PeerConnection::GatheringState state);
 public:
 
-	ScreenStreamer(Task* tsk, Event *stop_event, Mutex* mtx, Logger* logger);
+	ScreenStreamer(Task* tsk, Event* stop_event, Mutex* mtx, Logger* logger);
 	~ScreenStreamer();
 
 	int startSteaming();
@@ -100,9 +90,23 @@ public:
 	bool isStreaming();
 	int handle_write(uint8_t* buf, int buf_size);
 
-	void registerReceiver(WebSocket& client, Event* offerEvent);
-	std::string getOffer(WebSocket& client);
+	int registerReceiver(WebSocket& client, Event* offerEvent);
+	std::string getOffer(int receiverID);
 	int setAnswer(WebSocket& client, Object::Ptr answerJSON);
+
+private:
+	int receiverIdCount = 1;
+	bool shouldStream = false;
+	const rtc::SSRC ssrc = 42;
+	Task* task;
+	Mutex* mutex;
+	Event* stopEvent;
+	Logger* appLogger;
+	std::set <std::shared_ptr<Receiver>> receivers;
+	void getReceiver(int id, std::shared_ptr<Receiver>& recv);
+	void getReceiver(WebSocket* client, std::shared_ptr<Receiver>& recv);
+	std::string peerStateToString(rtc::PeerConnection::State state);
+	std::string gatheringStateToString(rtc::PeerConnection::GatheringState state);
 };
 
 #endif
