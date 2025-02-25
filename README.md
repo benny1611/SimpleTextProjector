@@ -73,8 +73,9 @@ This software uses libraries from the FFmpeg project under the LGPLv2.1. I do *N
 - [glfw](https://www.glfw.org/)
 - [poco](https://pocoproject.org/)
 - [FFmpeg](https://www.ffmpeg.org)
-- [libwebrtc](https://github.com/webrtc-sdk/libwebrtc)
+- [libdatachannel](https://github.com/paullouisageneau/libdatachannel)
 - [utfcpp](https://github.com/nemtrif/utfcpp)
+- [glm](https://github.com/g-truc/glm)
 
 ## License
 
