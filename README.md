@@ -44,6 +44,17 @@ Here are all the possible commands so far:
 - ```get``` get different values from the server, possible values so far:
   - ```stream``` returns if the server is streaming or not or and if it's streaming, then it returns the offer for the WebRTC client. Example: ```{"isStreaming": true, "offer": {....}}```
   - ```ping``` returns ```{"pong": true}``` just to keep the WebSocket connection alive
+- ```set``` set different values for this WebRTC connection - usually used to set the offer. Possible values so far:
+  - ```answer``` - sets the answer for the RTC connection. When ```"set": "answer"``` is present, another key must also be present: ```answer```. Example:
+  ```
+  {
+    "set": "answer",
+	"answer": {
+		"sdp": "v=0\r\no=mozilla...THIS_IS_SDPARTA ... ",
+		"type": "answer"
+	}
+  }
+  ```
 
 ## Example
 
