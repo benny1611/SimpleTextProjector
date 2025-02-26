@@ -18,7 +18,7 @@ public:
 	ScreenStreamerTask(Mutex* mutex, Logger* appLogger, int argc, char** argv);
 	void runTask();
 	int registerReceiver(WebSocket& client, Event* offerEvent);
-	std::string getOffer(int receiverId);
+	std::string getOffer(WebSocket& client);
 	int setAnswer(WebSocket& client, Object::Ptr answer);
 	void cancel(); // TODO: IMPLEMENT For cancellation to work, the task's runTask() method must periodically call isCancelled() and react accordingly. 
 	Event* getStopEvent();

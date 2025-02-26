@@ -76,7 +76,7 @@ struct Receiver {
 	WebSocket* client;
 	std::string offer;
 	bool isConnected = false;
-	int id;
+	//int id;
 };
 
 class ScreenStreamer {
@@ -91,7 +91,7 @@ public:
 	int handle_write(uint8_t* buf, int buf_size);
 
 	int registerReceiver(WebSocket& client, Event* offerEvent);
-	std::string getOffer(int receiverID);
+	std::string getOffer(WebSocket& client);
 	int setAnswer(WebSocket& client, Object::Ptr answerJSON);
 
 private:
@@ -103,7 +103,7 @@ private:
 	Event* stopEvent;
 	Logger* appLogger;
 	std::set <std::shared_ptr<Receiver>> receivers;
-	void getReceiver(int id, std::shared_ptr<Receiver>& recv);
+	//void getReceiver(int id, std::shared_ptr<Receiver>& recv);
 	void getReceiver(WebSocket* client, std::shared_ptr<Receiver>& recv);
 	std::string peerStateToString(rtc::PeerConnection::State state);
 	std::string gatheringStateToString(rtc::PeerConnection::GatheringState state);

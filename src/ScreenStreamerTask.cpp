@@ -14,8 +14,8 @@ int ScreenStreamerTask::registerReceiver(WebSocket& client, Event* offerEvent) {
 	return this->screenStreamer->registerReceiver(client, offerEvent);
 }
 
-std::string ScreenStreamerTask::getOffer(int receiverId) {
-	return this->screenStreamer->getOffer(receiverId);
+std::string ScreenStreamerTask::getOffer(WebSocket& client) {
+	return this->screenStreamer->getOffer(client);
 }
 
 int ScreenStreamerTask::setAnswer(WebSocket& client, Object::Ptr answer) {

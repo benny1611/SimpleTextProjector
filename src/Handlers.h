@@ -163,10 +163,10 @@ void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 		if (isServerRunning) {
 			streamingServerMutex.unlock();
 			Event waitForOfferEvent;
-			int receiverID = screenStreamerTask->registerReceiver(ws, &waitForOfferEvent);
+			screenStreamerTask->registerReceiver(ws, &waitForOfferEvent);
 			waitForOfferEvent.wait();
 			isStreamingJSON += "true, \"offer\": ";
-			isStreamingJSON += screenStreamerTask->getOffer(receiverID);
+			isStreamingJSON += screenStreamerTask->getOffer(ws);
 		}
 		else {
 			streamingServerMutex.unlock();

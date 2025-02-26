@@ -113,13 +113,13 @@ int ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 	
 	std::shared_ptr<Receiver> r = std::make_shared<Receiver>();
 	int receiverID = receiverIdCount;
-	r->id = receiverIdCount;
+	//r->id = receiverIdCount;
 	
 	r->conn = std::make_shared<rtc::PeerConnection>();
-	r->conn->onStateChange([this, client, r](rtc::PeerConnection::State state) {
+	r->conn->onStateChange([this, &client, r](rtc::PeerConnection::State state) {
 		this->appLogger->information("State: %s", this->peerStateToString(state));
 		std::shared_ptr<Receiver> currentReceiver;
-		this->getReceiver(r->id, currentReceiver);
+		this->getReceiver(&client, currentReceiver);
 		if (state == rtc::PeerConnection::State::Connected) {
 			currentReceiver->isConnected = true;
 		}
@@ -128,7 +128,7 @@ int ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 		}
 	});
 
-	r->conn->onGatheringStateChange([r, this, client, offerEvent](rtc::PeerConnection::GatheringState state) {
+	r->conn->onGatheringStateChange([r, this, &client, offerEvent](rtc::PeerConnection::GatheringState state) {
 		this->appLogger->information("Gathering State: %s", this->gatheringStateToString(state));
 		if (state == rtc::PeerConnection::GatheringState::Complete) {
 			auto description = r->conn->localDescription();
@@ -140,7 +140,7 @@ int ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 			Stringifier::stringify(*jsonMessage, buffer);
 
 			std::shared_ptr<Receiver> currentReceiver;
-			this->getReceiver(r->id, currentReceiver);
+			this->getReceiver(&client, currentReceiver);
 
 			if (currentReceiver != NULL) {
 				currentReceiver.get()->offer = buffer.str();
@@ -178,9 +178,9 @@ int ScreenStreamer::registerReceiver(WebSocket& client, Event* offerEvent) {
 	return receiverID;
 }
 
-std::string ScreenStreamer::getOffer(int receiverID) {
+std::string ScreenStreamer::getOffer(WebSocket& client) {
 	std::shared_ptr<Receiver> currentReceiver;
-	this->getReceiver(receiverID, currentReceiver);
+	this->getReceiver(&client, currentReceiver);
 	if (currentReceiver != NULL) {
 		return currentReceiver.get()->offer;
 	}
@@ -189,7 +189,7 @@ std::string ScreenStreamer::getOffer(int receiverID) {
 	}
 }
 
-void ScreenStreamer::getReceiver(int id, std::shared_ptr<Receiver>& recv) {
+/*void ScreenStreamer::getReceiver(int id, std::shared_ptr<Receiver>& recv) {
 	set<std::shared_ptr<Receiver>>::iterator itr;
 
 	for (itr = receivers.begin(); itr != receivers.end(); itr++) {
@@ -200,7 +200,7 @@ void ScreenStreamer::getReceiver(int id, std::shared_ptr<Receiver>& recv) {
 	}
 
 	recv = NULL;
-}
+}*/
 
 
 void ScreenStreamer::getReceiver(WebSocket* client, std::shared_ptr<Receiver>& recv) {
