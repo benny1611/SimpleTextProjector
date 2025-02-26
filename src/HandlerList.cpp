@@ -10,6 +10,7 @@ HandlerList::HandlerList(Logger* consoleLogger) {
 	registerHandler("stream", handleStream);
 	registerHandler("get", handleGet);
 	registerHandler("set", handleSet);
+	registerHandler("background_color", handleBGColor);
 }
 
 HandlerList::~HandlerList() {

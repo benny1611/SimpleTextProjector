@@ -35,6 +35,10 @@ ScreenStreamerTask* screenStreamerTask;
 std::set<WebSocket> clients;
 bool isServerRunning = false;
 std::map<int, TextBoxRenderer*> renderers;
+float backgroundColorR = 0.0f;
+float backgroundColorG = 0.0f;
+float backgroundColorB = 0.0f;
+float backgroundColorA = 0.0f;
 
 
 // Other variables for main
@@ -143,10 +147,10 @@ int main(int argc, char** argv) {
     while (!glfwWindowShouldClose(window))
     {
 
-        glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         textMutex.lock();
+        glClearColor(backgroundColorR, backgroundColorG, backgroundColorB, backgroundColorA);
         renderer->renderCenteredText(drawDebugLines);
         textMutex.unlock();
 

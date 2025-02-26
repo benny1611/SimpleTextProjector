@@ -23,3 +23,7 @@ extern ScreenStreamerTask* screenStreamerTask;
 extern std::set<WebSocket> clients;
 extern bool isServerRunning;
 extern std::map<int, TextBoxRenderer*> renderers;
+extern float backgroundColorR;
+extern float backgroundColorG;
+extern float backgroundColorB;
+extern float backgroundColorA;

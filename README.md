@@ -40,12 +40,13 @@ Here are all the possible commands so far:
 - ```font_size``` - ```int``` size in pixels of the font.
 - ```font``` - ```string``` name of the ```.ttf``` file that must be present in the ```fonts``` folder.
 - ```font_color``` - ```JSON Object``` This object must define values (between 0.0 and 1.0) for each colors: R (RED), G (GREEN), B(BLUE) and A(ALPHA). Example: ```{"font_color": {"R": 1.0, "G": 0.0, "B": 0.0, "A": 1.0 } }```
+- ```background_color``` - ```JSON Object``` This object must define values (between 0.0 and 1.0) for each colors: R (RED), G (GREEN), B(BLUE) and A(ALPHA). Example: ```{"background_color": {"R": 1.0, "G": 0.0, "B": 0.0, "A": 1.0 } }```
 - ```stream``` boolean value start or stop streaming
 - ```get``` get different values from the server, possible values so far:
   - ```stream``` returns if the server is streaming or not or and if it's streaming, then it returns the offer for the WebRTC client. Example: ```{"isStreaming": true, "offer": {....}}```
   - ```ping``` returns ```{"pong": true}``` just to keep the WebSocket connection alive
 - ```set``` set different values for this WebRTC connection - usually used to set the offer. Possible values so far:
-  - ```answer``` - sets the answer for the RTC connection. When ```"set": "answer"``` is present, another key must also be present: ```answer```. Example:
+  - ```answer``` - sets the answer for the RTC connection. When ```"set": "answer"``` is present, the ```answer``` key must also be present. Example:
   ```
   {
     "set": "answer",
