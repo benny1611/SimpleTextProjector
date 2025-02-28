@@ -226,3 +226,16 @@ void handleBGColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) 
 		consoleLogger->information("Here's your color: R: " + std::to_string(R) + ", G:" + std::to_string(G) + ", B: " + std::to_string(B) + ", A:" + std::to_string(A));
 	}
 }
+
+void handleMonitor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
+	int monitorIndex = jsonObject->getValue<int>("monitor");
+
+	currentMonitor.monitorMutex.lock();
+
+	if (monitorIndex != currentMonitor.monitorIndex && monitorIndex >= 0 && monitorIndex < currentMonitor.monitorCount) {
+		currentMonitor.monitorIndex = monitorIndex;
+		currentMonitor.hasChanged = true;
+	}
+
+	currentMonitor.monitorMutex.unlock();
+}

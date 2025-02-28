@@ -541,6 +541,7 @@ void TextBoxRenderer::setFont(std::string fontPath) {
 
 void TextBoxRenderer::setScreenSize(float screenWidth, float screenHeight) {
     this->projectionMatrix = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
+    clearCache();
 }
 
 std::string TextBoxRenderer::getText() {

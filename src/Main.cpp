@@ -12,6 +12,7 @@
 #include "Poco/PatternFormatter.h"
 #include "Poco/FormattingChannel.h"
 #include "Poco/ConsoleChannel.h"
+#include "Poco/JSON/Stringifier.h"
 #include "CustomErrorHandler.h"
 #include "Poco/Message.h"
 #include "Poco/TaskManager.h"
@@ -39,14 +40,16 @@ float backgroundColorR = 0.0f;
 float backgroundColorG = 0.0f;
 float backgroundColorB = 0.0f;
 float backgroundColorA = 0.0f;
+CurrentMonitor currentMonitor;
 
 
 // Other variables for main
 float defaultWidth = 800;
 float defaultHeight = 450;
 
-GLFWmonitor** monitors;
 FT_Library freeTypeLibrary;
+GLFWmonitor** monitors;
+GLFWwindow* window;
 
 void monitor_callback(GLFWmonitor* monitor, int event);
 
@@ -99,16 +102,24 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_AUTO_ICONIFY, GL_FALSE);
 
     GLFWmonitor* primary = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(primary);
-    defaultWidth = (float) mode->width;
-    defaultHeight = (float) mode->height;
+    const GLFWvidmode* primaryMode = glfwGetVideoMode(primary);
+    defaultWidth = (float) primaryMode->width;
+    defaultHeight = (float) primaryMode->height;
 
-    int monitorCount;
-    monitors = glfwGetMonitors(&monitorCount);
+    currentMonitor.monitorMutex.lock();
+    monitors = glfwGetMonitors(&currentMonitor.monitorCount);
+    for (int i = 0; i < currentMonitor.monitorCount; i++) {
+        if (monitors[i] == primary) {
+            currentMonitor.monitorIndex = i;
+            break;
+        }
+    }
+    currentMonitor.hasChanged = false;
+    currentMonitor.monitorMutex.unlock();
 
     glfwSetMonitorCallback(monitor_callback);
 
-    GLFWwindow* window = glfwCreateWindow(defaultWidth, defaultHeight, "SimpleTextProjector", primary, NULL);
+    window = glfwCreateWindow(defaultWidth, defaultHeight, "SimpleTextProjector", primary, NULL);
 
     if (window == NULL) {
         glfwTerminate();
@@ -146,6 +157,14 @@ int main(int argc, char** argv) {
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
+        currentMonitor.monitorMutex.lock();
+        if (currentMonitor.hasChanged) {
+            const GLFWvidmode* mode = glfwGetVideoMode(monitors[currentMonitor.monitorIndex]);
+            glfwSetWindowMonitor(window, monitors[currentMonitor.monitorIndex], 0, 0, mode->width, mode->height, mode->refreshRate);
+            currentMonitor.hasChanged = false;
+            renderer->setScreenSize(mode->width, mode->height);
+        }
+        currentMonitor.monitorMutex.unlock();
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -184,14 +203,49 @@ int main(int argc, char** argv) {
 
 }
 
-void monitor_callback(GLFWmonitor* monitor, int event)
-{
-    if (event == GLFW_CONNECTED)
-    {
-        // The monitor was connected
-    }
-    else if (event == GLFW_DISCONNECTED)
-    {
+void monitor_callback(GLFWmonitor* monitor, int event) {
+    currentMonitor.monitorMutex.lock();
+    if (event == GLFW_CONNECTED) {
+        // connected a new monitor, update monitor count
+        monitors = glfwGetMonitors(&currentMonitor.monitorCount);
+    } else if (event == GLFW_DISCONNECTED) {
         // The monitor was disconnected
+        monitors = glfwGetMonitors(&currentMonitor.monitorCount);
+        GLFWmonitor* currentWindowMonitor = glfwGetWindowMonitor(window);
+        if (monitor == currentWindowMonitor) {
+
+            // the monitor on which we had our window got disconnected, show on the primary
+            GLFWmonitor* primary = glfwGetPrimaryMonitor();
+
+            const GLFWvidmode* mode = glfwGetVideoMode(primary);
+
+            glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+
+            std::map<int, TextBoxRenderer*>::iterator textRendererIterator;
+            for (textRendererIterator = renderers.begin(); textRendererIterator != renderers.end(); textRendererIterator++) {
+                textRendererIterator->second->setScreenSize(mode->width, mode->height);
+            }
+        }
+    }
+    currentMonitor.monitorMutex.unlock();
+
+
+    Poco::JSON::Object::Ptr newMonitorJSON = new Poco::JSON::Object;
+    if (event == GLFW_CONNECTED) {
+        newMonitorJSON->set("event", "MONITOR_CONNECTED");
+    } else {
+        newMonitorJSON->set("event", "MONITOR_DISCONNECTED");
+    }
+    
+    newMonitorJSON->set("monitor_count", currentMonitor.monitorCount);
+
+    std::ostringstream oss;
+    Poco::JSON::Stringifier::stringify(*newMonitorJSON, oss);
+    std::string newMonitorJSONAsString = oss.str();
+    delete newMonitorJSON;
+
+    std::set<WebSocket>::iterator clientIterator;
+    for (clientIterator = clients.begin(); clientIterator != clients.end(); clientIterator++) {
+        ((WebSocket)*clientIterator).sendFrame(newMonitorJSONAsString.c_str(), newMonitorJSONAsString.length());
     }
 }

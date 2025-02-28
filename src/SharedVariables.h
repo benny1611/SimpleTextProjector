@@ -15,6 +15,14 @@
 using Poco::Net::WebSocket;
 using Poco::Mutex;
 
+struct CurrentMonitor {
+	int monitorCount;
+	int monitorIndex;
+	bool hasChanged;
+	Mutex monitorMutex;
+	std::string monitorJSONAsString;
+};
+
 extern Mutex textMutex;
 extern Mutex clientSetMutex;
 extern Mutex streamingServerMutex;
@@ -27,3 +35,4 @@ extern float backgroundColorR;
 extern float backgroundColorG;
 extern float backgroundColorB;
 extern float backgroundColorA;
+extern CurrentMonitor currentMonitor;

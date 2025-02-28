@@ -11,6 +11,7 @@ HandlerList::HandlerList(Logger* consoleLogger) {
 	registerHandler("get", handleGet);
 	registerHandler("set", handleSet);
 	registerHandler("background_color", handleBGColor);
+	registerHandler("monitor", handleMonitor);
 }
 
 HandlerList::~HandlerList() {
