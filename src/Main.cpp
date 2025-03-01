@@ -269,7 +269,10 @@ void setMonitorJSON() {
         monitorJsonArray.add(monitorJSON);
     }
 
+    Poco::JSON::Object::Ptr monitorsJSONMain = new Poco::JSON::Object;
+    monitorsJSONMain->set("monitors", monitorJsonArray);
+
     std::ostringstream oss;
-    Poco::JSON::Stringifier::stringify(monitorJsonArray, oss);
+    Poco::JSON::Stringifier::stringify(monitorsJSONMain, oss);
     monitorInfo.monitorJSONAsString = oss.str();
 }
