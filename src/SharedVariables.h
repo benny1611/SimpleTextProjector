@@ -15,7 +15,7 @@
 using Poco::Net::WebSocket;
 using Poco::Mutex;
 
-struct CurrentMonitor {
+struct MonitorInfo {
 	int monitorCount;
 	int monitorIndex;
 	bool hasChanged;
@@ -35,4 +35,4 @@ extern float backgroundColorR;
 extern float backgroundColorG;
 extern float backgroundColorB;
 extern float backgroundColorA;
-extern CurrentMonitor currentMonitor;
+extern MonitorInfo monitorInfo;

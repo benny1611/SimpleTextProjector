@@ -230,12 +230,12 @@ void handleBGColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) 
 void handleMonitor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	int monitorIndex = jsonObject->getValue<int>("monitor");
 
-	currentMonitor.monitorMutex.lock();
+	monitorInfo.monitorMutex.lock();
 
-	if (monitorIndex != currentMonitor.monitorIndex && monitorIndex >= 0 && monitorIndex < currentMonitor.monitorCount) {
-		currentMonitor.monitorIndex = monitorIndex;
-		currentMonitor.hasChanged = true;
+	if (monitorIndex != monitorInfo.monitorIndex && monitorIndex >= 0 && monitorIndex < monitorInfo.monitorCount) {
+		monitorInfo.monitorIndex = monitorIndex;
+		monitorInfo.hasChanged = true;
 	}
 
-	currentMonitor.monitorMutex.unlock();
+	monitorInfo.monitorMutex.unlock();
 }

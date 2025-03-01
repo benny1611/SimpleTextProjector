@@ -40,7 +40,7 @@ float backgroundColorR = 0.0f;
 float backgroundColorG = 0.0f;
 float backgroundColorB = 0.0f;
 float backgroundColorA = 0.0f;
-CurrentMonitor currentMonitor;
+MonitorInfo monitorInfo;
 
 
 // Other variables for main
@@ -106,16 +106,16 @@ int main(int argc, char** argv) {
     defaultWidth = (float) primaryMode->width;
     defaultHeight = (float) primaryMode->height;
 
-    currentMonitor.monitorMutex.lock();
-    monitors = glfwGetMonitors(&currentMonitor.monitorCount);
-    for (int i = 0; i < currentMonitor.monitorCount; i++) {
+    monitorInfo.monitorMutex.lock();
+    monitors = glfwGetMonitors(&monitorInfo.monitorCount);
+    for (int i = 0; i < monitorInfo.monitorCount; i++) {
         if (monitors[i] == primary) {
-            currentMonitor.monitorIndex = i;
+            monitorInfo.monitorIndex = i;
             break;
         }
     }
-    currentMonitor.hasChanged = false;
-    currentMonitor.monitorMutex.unlock();
+    monitorInfo.hasChanged = false;
+    monitorInfo.monitorMutex.unlock();
 
     glfwSetMonitorCallback(monitor_callback);
 
@@ -157,14 +157,14 @@ int main(int argc, char** argv) {
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
-        currentMonitor.monitorMutex.lock();
-        if (currentMonitor.hasChanged) {
-            const GLFWvidmode* mode = glfwGetVideoMode(monitors[currentMonitor.monitorIndex]);
-            glfwSetWindowMonitor(window, monitors[currentMonitor.monitorIndex], 0, 0, mode->width, mode->height, mode->refreshRate);
-            currentMonitor.hasChanged = false;
+        monitorInfo.monitorMutex.lock();
+        if (monitorInfo.hasChanged) {
+            const GLFWvidmode* mode = glfwGetVideoMode(monitors[monitorInfo.monitorIndex]);
+            glfwSetWindowMonitor(window, monitors[monitorInfo.monitorIndex], 0, 0, mode->width, mode->height, mode->refreshRate);
+            monitorInfo.hasChanged = false;
             renderer->setScreenSize(mode->width, mode->height);
         }
-        currentMonitor.monitorMutex.unlock();
+        monitorInfo.monitorMutex.unlock();
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -204,13 +204,13 @@ int main(int argc, char** argv) {
 }
 
 void monitor_callback(GLFWmonitor* monitor, int event) {
-    currentMonitor.monitorMutex.lock();
+    monitorInfo.monitorMutex.lock();
     if (event == GLFW_CONNECTED) {
         // connected a new monitor, update monitor count
-        monitors = glfwGetMonitors(&currentMonitor.monitorCount);
+        monitors = glfwGetMonitors(&monitorInfo.monitorCount);
     } else if (event == GLFW_DISCONNECTED) {
         // The monitor was disconnected
-        monitors = glfwGetMonitors(&currentMonitor.monitorCount);
+        monitors = glfwGetMonitors(&monitorInfo.monitorCount);
         GLFWmonitor* currentWindowMonitor = glfwGetWindowMonitor(window);
         if (monitor == currentWindowMonitor) {
 
@@ -227,7 +227,7 @@ void monitor_callback(GLFWmonitor* monitor, int event) {
             }
         }
     }
-    currentMonitor.monitorMutex.unlock();
+    monitorInfo.monitorMutex.unlock();
 
 
     Poco::JSON::Object::Ptr newMonitorJSON = new Poco::JSON::Object;
@@ -237,7 +237,7 @@ void monitor_callback(GLFWmonitor* monitor, int event) {
         newMonitorJSON->set("event", "MONITOR_DISCONNECTED");
     }
     
-    newMonitorJSON->set("monitor_count", currentMonitor.monitorCount);
+    newMonitorJSON->set("monitor_count", monitorInfo.monitorCount);
 
     std::ostringstream oss;
     Poco::JSON::Stringifier::stringify(*newMonitorJSON, oss);
