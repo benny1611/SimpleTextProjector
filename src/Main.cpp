@@ -13,6 +13,7 @@
 #include "Poco/FormattingChannel.h"
 #include "Poco/ConsoleChannel.h"
 #include "Poco/JSON/Stringifier.h"
+#include "Poco/JSON/Array.h"
 #include "CustomErrorHandler.h"
 #include "Poco/Message.h"
 #include "Poco/TaskManager.h"
@@ -52,6 +53,7 @@ GLFWmonitor* currentWindowMonitor;
 GLFWwindow* window;
 
 void monitor_callback(GLFWmonitor* monitor, int event);
+void setMonitorJSON();
 
 int main(int argc, char** argv) {
     FT_Library freeTypeLibrary;
@@ -116,6 +118,7 @@ int main(int argc, char** argv) {
         }
     }
     monitorInfo.hasChanged = false;
+    setMonitorJSON();
     monitorInfo.monitorMutex.unlock();
 
     glfwSetMonitorCallback(monitor_callback);
@@ -231,6 +234,7 @@ void monitor_callback(GLFWmonitor* monitor, int event) {
             monitorInfo.hasChanged = true;
         }
     }
+    setMonitorJSON();
     monitorInfo.monitorMutex.unlock();
 
 
@@ -251,4 +255,21 @@ void monitor_callback(GLFWmonitor* monitor, int event) {
     for (clientIterator = clients.begin(); clientIterator != clients.end(); clientIterator++) {
         ((WebSocket)*clientIterator).sendFrame(newMonitorJSONAsString.c_str(), newMonitorJSONAsString.length());
     }
+}
+
+void setMonitorJSON() {
+    Poco::JSON::Array monitorJsonArray;
+    for (int i = 0; i < monitorInfo.monitorCount; i++) {
+        Poco::JSON::Object::Ptr monitorJSON = new Poco::JSON::Object;
+        const char* name = glfwGetMonitorName(monitors[i]);
+        const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
+        std::string completeName = std::string(name) + " " + std::to_string(mode->width) + " x " + std::to_string(mode->height) + " " + std::to_string(mode->refreshRate) + "hz";
+
+        monitorJSON->set(std::to_string(i), completeName);
+        monitorJsonArray.add(monitorJSON);
+    }
+
+    std::ostringstream oss;
+    Poco::JSON::Stringifier::stringify(monitorJsonArray, oss);
+    monitorInfo.monitorJSONAsString = oss.str();
 }

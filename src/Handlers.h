@@ -197,6 +197,10 @@ void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	} else if (what == "ping") {
 		std::string pong = "{\"pong\": true}";
 		ws.sendFrame(pong.c_str(), pong.length());
+	} else if (what == "monitors") {
+		monitorInfo.monitorMutex.lock();
+		ws.sendFrame(monitorInfo.monitorJSONAsString.c_str(), monitorInfo.monitorJSONAsString.length());
+		monitorInfo.monitorMutex.unlock();
 	} else {
 		std::string error = getErrorMessageJSONAsString("get command not supported: " + what);
 		ws.sendFrame(error.c_str(), error.length());

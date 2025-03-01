@@ -45,6 +45,7 @@ Here are all the possible commands so far:
 - ```get``` get different values from the server, possible values so far:
   - ```stream``` returns if the server is streaming or not or and if it's streaming, then it returns the offer for the WebRTC client. Example: ```{"isStreaming": true, "offer": {....}}```
   - ```ping``` returns ```{"pong": true}``` just to keep the WebSocket connection alive
+  - ```monitors``` returns a JSON array with the IDs of the monitors and their names (names are not guaranteed to be unique). Example output: ```[{"0":"Generic PnP Monitor 1920 x 1080 60hz"},{"1":"Generic PnP Monitor 2560 x 1440 59hz"},{"2":"Generic PnP Monitor 1920 x 1080 60hz"}]```
 - ```set``` set different values for this WebRTC connection - usually used to set the offer. Possible values so far:
   - ```answer``` - sets the answer for the RTC connection. When ```"set": "answer"``` is present, the ```answer``` key must also be present. Example:
   ```
