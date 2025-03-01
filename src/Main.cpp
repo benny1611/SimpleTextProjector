@@ -47,13 +47,14 @@ MonitorInfo monitorInfo;
 float defaultWidth = 800;
 float defaultHeight = 450;
 
-FT_Library freeTypeLibrary;
 GLFWmonitor** monitors;
+GLFWmonitor* currentWindowMonitor;
 GLFWwindow* window;
 
 void monitor_callback(GLFWmonitor* monitor, int event);
 
 int main(int argc, char** argv) {
+    FT_Library freeTypeLibrary;
     CustomErrorHandler ceh;
     ErrorHandler::set(&ceh);
 
@@ -127,6 +128,8 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    currentWindowMonitor = glfwGetWindowMonitor(window);
+
     glfwMakeContextCurrent(window);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -163,6 +166,7 @@ int main(int argc, char** argv) {
             glfwSetWindowMonitor(window, monitors[monitorInfo.monitorIndex], 0, 0, mode->width, mode->height, mode->refreshRate);
             monitorInfo.hasChanged = false;
             renderer->setScreenSize(mode->width, mode->height);
+            currentWindowMonitor = glfwGetWindowMonitor(window);
         }
         monitorInfo.monitorMutex.unlock();
 
@@ -211,20 +215,20 @@ void monitor_callback(GLFWmonitor* monitor, int event) {
     } else if (event == GLFW_DISCONNECTED) {
         // The monitor was disconnected
         monitors = glfwGetMonitors(&monitorInfo.monitorCount);
-        GLFWmonitor* currentWindowMonitor = glfwGetWindowMonitor(window);
         if (monitor == currentWindowMonitor) {
 
             // the monitor on which we had our window got disconnected, show on the primary
             GLFWmonitor* primary = glfwGetPrimaryMonitor();
+            int primaryIndex = 0;
 
-            const GLFWvidmode* mode = glfwGetVideoMode(primary);
-
-            glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
-
-            std::map<int, TextBoxRenderer*>::iterator textRendererIterator;
-            for (textRendererIterator = renderers.begin(); textRendererIterator != renderers.end(); textRendererIterator++) {
-                textRendererIterator->second->setScreenSize(mode->width, mode->height);
+            for (int i = 0; i < monitorInfo.monitorCount; i++) {
+                if (primary == monitors[i]) {
+                    primaryIndex = i;
+                    break;
+                }
             }
+            monitorInfo.monitorIndex = primaryIndex;
+            monitorInfo.hasChanged = true;
         }
     }
     monitorInfo.monitorMutex.unlock();
@@ -242,7 +246,6 @@ void monitor_callback(GLFWmonitor* monitor, int event) {
     std::ostringstream oss;
     Poco::JSON::Stringifier::stringify(*newMonitorJSON, oss);
     std::string newMonitorJSONAsString = oss.str();
-    delete newMonitorJSON;
 
     std::set<WebSocket>::iterator clientIterator;
     for (clientIterator = clients.begin(); clientIterator != clients.end(); clientIterator++) {
