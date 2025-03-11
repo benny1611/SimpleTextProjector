@@ -158,9 +158,18 @@
     <ClInclude Include="src\CustomErrorHandler.h" />
     <ClInclude Include="src\HTTPCommandServer.h" />
     <ClInclude Include="src\HTTPSCommandServer.h" />
+    <ClInclude Include="src\imgui\imconfig.h" />
+    <ClInclude Include="src\imgui\imgui.h" />
+    <ClInclude Include="src\imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="src\imgui\imgui_impl_opengl2.h" />
+    <ClInclude Include="src\imgui\imgui_internal.h" />
+    <ClInclude Include="src\imgui\imstb_rectpack.h" />
+    <ClInclude Include="src\imgui\imstb_textedit.h" />
+    <ClInclude Include="src\imgui\imstb_truetype.h" />
     <ClInclude Include="src\ScreenStreamer.h" />
     <ClInclude Include="src\ScreenStreamerTask.h" />
     <ClInclude Include="src\SharedVariables.h" />
+    <ClInclude Include="src\SimpleTextProjectorUI.h" />
     <ClInclude Include="src\TextBoxRenderer.h" />
     <ClInclude Include="src\WebSocketHandler.h" />
   </ItemGroup>
@@ -170,9 +179,16 @@
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\HTTPCommandServer.cpp" />
     <ClCompile Include="src\HTTPSCommandServer.cpp" />
+    <ClCompile Include="src\imgui\imgui.cpp" />
+    <ClCompile Include="src\imgui\imgui_draw.cpp" />
+    <ClCompile Include="src\imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="src\imgui\imgui_impl_opengl2.cpp" />
+    <ClCompile Include="src\imgui\imgui_tables.cpp" />
+    <ClCompile Include="src\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\ScreenStreamer.cpp" />
     <ClCompile Include="src\ScreenStreamerTask.cpp" />
+    <ClCompile Include="src\SimpleTextProjectorUI.cpp" />
     <ClCompile Include="src\TextBoxRenderer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

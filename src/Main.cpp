@@ -19,6 +19,12 @@
 #include "Poco/TaskManager.h"
 #include "TextBoxRenderer.h"
 
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl2.h"
+
+#include "SimpleTextProjectorUI.h"
+
 using Poco::ErrorHandler;
 using Poco::AutoPtr;
 using Poco::Util::PropertyFileConfiguration;
@@ -54,6 +60,7 @@ GLFWwindow* window;
 
 void monitor_callback(GLFWmonitor* monitor, int event);
 void setMonitorJSON();
+static void glfw_error_callback(int error, const char* description);
 
 int main(int argc, char** argv) {
     FT_Library freeTypeLibrary;
@@ -95,6 +102,8 @@ int main(int argc, char** argv) {
         HTTPSServerTask* httpsTask = new HTTPSServerTask(HTTPSServer, argc, argv);
         taskManager->start(httpsTask);
     }
+
+    glfwSetErrorCallback(glfw_error_callback);
 
     int err = glfwInit();
     if (err != GLFW_TRUE) {
@@ -141,9 +150,6 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    glEnable(GL_CULL_FACE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     bool drawDebugLines = pConf->getBool("DrawDebugLines", false);
     float fontSizeDecreaseStep = pConf->getDouble("FontSizeDecreaseStep", 5.0);
@@ -160,9 +166,64 @@ int main(int argc, char** argv) {
     std::pair<int, TextBoxRenderer*> rendererPair(1, renderer);
     renderers.insert(rendererPair);
 
+
+    // UI window
+
+    GLFWwindow* uiWindow = glfwCreateWindow(1280, 720, "Simple Text Projector", nullptr, nullptr);
+
+    glfwMakeContextCurrent(uiWindow);
+
+    GLFWmonitor* uiMonitor = primary;
+
+    for (int i = 0; i < monitorInfo.monitorCount; i++) {
+        if (primary != monitors[i]) {
+            uiMonitor = monitors[i];
+            break;
+        }
+    }
+
+    int uiWindowX, uiWindowY;
+    glfwGetMonitorPos(uiMonitor, &uiWindowX, &uiWindowY);
+    const GLFWvidmode* uiMonitorMode = glfwGetVideoMode(uiMonitor);
+    int uiWindowWidth, uiWindowHeight;
+    glfwGetWindowSize(uiWindow, &uiWindowWidth, &uiWindowHeight);
+
+    uiWindowX = uiWindowX + (uiMonitorMode->width / 2) - (uiWindowWidth / 2);
+    uiWindowY = uiWindowY + (uiMonitorMode->height / 2) - (uiWindowHeight / 2);
+
+    glfwSetWindowPos(uiWindow, uiWindowX, uiWindowY);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); 
+    (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(uiWindow, true);
+    ImGui_ImplOpenGL2_Init();
+
+    // Load Fonts
+    io.Fonts->AddFontDefault();
+    ImFont* titleFont = io.Fonts->AddFontFromFileTTF("./fonts/Raleway.ttf", 32.0f);
+    ImFont* paragraphFont = io.Fonts->AddFontFromFileTTF("./fonts/Raleway.ttf", 24.0f);
+    io.Fonts->Build();
+
+    ImGui_ImplOpenGL2_CreateFontsTexture();
+
+    SimpleTextProjectorUI* ui = new SimpleTextProjectorUI(uiWindow, titleFont, paragraphFont, "http://localhost");
+
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_CULL_FACE);
         monitorInfo.monitorMutex.lock();
         if (monitorInfo.hasChanged) {
             const GLFWvidmode* mode = glfwGetVideoMode(monitors[monitorInfo.monitorIndex]);
@@ -183,8 +244,27 @@ int main(int argc, char** argv) {
         /* Swap buffers */
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        ui->draw();
+
+        glfwMakeContextCurrent(uiWindow);
+        glfwSwapBuffers(uiWindow);
+
     }
 
+    delete ui;
+
+    ImGui_ImplOpenGL2_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    glfwDestroyWindow(window);
+    glfwDestroyWindow(uiWindow);
     glfwTerminate();
     
     if (useHTTP) {
@@ -275,4 +355,8 @@ void setMonitorJSON() {
     std::ostringstream oss;
     Poco::JSON::Stringifier::stringify(monitorsJSONMain, oss);
     monitorInfo.monitorJSONAsString = oss.str();
+}
+
+static void glfw_error_callback(int error, const char* description) {
+    fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }

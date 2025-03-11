@@ -13,6 +13,36 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\imgui">
+      <UniqueIdentifier>{46350f30-52f2-4a24-a5bb-76486655a551}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\imgui">
+      <UniqueIdentifier>{6475d966-2ad9-4105-a4b0-3d97af0c8211}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\handlers">
+      <UniqueIdentifier>{a809b1fb-fb16-434e-91d2-e7ed692b74f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\handlers">
+      <UniqueIdentifier>{f7d5b550-5300-44dd-b3ab-5415a9519966}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\renderer">
+      <UniqueIdentifier>{659954a1-656d-4f7c-aaaa-8186d6c3bb9e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\renderer">
+      <UniqueIdentifier>{984f6293-75df-4b81-b83f-9164ad11081d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\screen_streamer">
+      <UniqueIdentifier>{e594ad91-6d11-45e6-8c52-94355cdaa004}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\screen_streamer">
+      <UniqueIdentifier>{dc00ef18-465b-417f-ba9d-f8b9cf4c0952}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ui">
+      <UniqueIdentifier>{fab3240b-2f71-4f17-bd4b-01ccc84329ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ui">
+      <UniqueIdentifier>{a650fed1-5f58-46e5-a739-25619ba6969f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="SimpleTextProjector.properties">
@@ -20,67 +50,115 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\CommandRequestHandler.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\CustomErrorHandler.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\HTTPCommandServer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\HTTPSCommandServer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ScreenStreamer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ScreenStreamerTask.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\SharedVariables.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\WebSocketHandler.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\imgui\imconfig.h">
+      <Filter>Header Files\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="src\TextBoxRenderer.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\imgui\imgui.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgui\imgui_impl_glfw.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgui\imgui_impl_opengl2.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgui\imgui_internal.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgui\imstb_rectpack.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgui\imstb_textedit.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgui\imstb_truetype.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CommandRequestHandler.h">
+      <Filter>Header Files\handlers</Filter>
     </ClInclude>
     <ClInclude Include="src\HandlerList.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\handlers</Filter>
     </ClInclude>
     <ClInclude Include="src\Handlers.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\HTTPCommandServer.h">
+      <Filter>Header Files\handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\HTTPSCommandServer.h">
+      <Filter>Header Files\handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CustomErrorHandler.h">
+      <Filter>Header Files\handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\WebSocketHandler.h">
+      <Filter>Header Files\handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TextBoxRenderer.h">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ScreenStreamerTask.h">
+      <Filter>Header Files\screen_streamer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ScreenStreamer.h">
+      <Filter>Header Files\screen_streamer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SimpleTextProjectorUI.h">
+      <Filter>Header Files\ui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\CommandRequestHandler.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\HTTPCommandServer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\HTTPSCommandServer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\Main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ScreenStreamer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ScreenStreamerTask.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TextBoxRenderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\imgui\imgui.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgui\imgui_draw.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgui\imgui_impl_glfw.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgui\imgui_impl_opengl2.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgui\imgui_tables.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgui\imgui_widgets.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\HTTPCommandServer.cpp">
+      <Filter>Source Files\handlers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\HTTPSCommandServer.cpp">
+      <Filter>Source Files\handlers</Filter>
+    </ClCompile>
     <ClCompile Include="src\HandlerList.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\handlers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\CommandRequestHandler.cpp">
+      <Filter>Source Files\handlers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TextBoxRenderer.cpp">
+      <Filter>Source Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ScreenStreamer.cpp">
+      <Filter>Source Files\screen_streamer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ScreenStreamerTask.cpp">
+      <Filter>Source Files\screen_streamer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SimpleTextProjectorUI.cpp">
+      <Filter>Source Files\ui</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
