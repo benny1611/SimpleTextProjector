@@ -1,16 +1,19 @@
 #include "SimpleTextProjectorUI.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl2.h"
+#include "qrcodegen.hpp"
 #include <cstdlib>
 #include <string>
 
-SimpleTextProjectorUI::SimpleTextProjectorUI(GLFWwindow* uiWindow, ImFont* titleFont, ImFont* paragraphFont, std::string url) : uiWindow(uiWindow), titleFont(titleFont), paragraphFont(paragraphFont), url(url) {
+using namespace qrcodegen;
+
+SimpleTextProjectorUI::SimpleTextProjectorUI(GLFWwindow* uiWindow, ImFont* titleFont, ImFont* paragraphFont, ImFont* buttonFont, std::string url, bool* shouldCloseUI, bool* checkBoxTicked) : uiWindow(uiWindow), titleFont(titleFont), paragraphFont(paragraphFont), url(url), shouldCloseUI(shouldCloseUI), buttonFont(buttonFont), checkBoxTicked(checkBoxTicked) {
     glfwSetWindowAttrib(uiWindow, GLFW_RESIZABLE, false);
+    qrTexture = generateQrTexture(url.c_str());
 }
 
 void SimpleTextProjectorUI::draw() {
-    if (glfwGetWindowAttrib(uiWindow, GLFW_ICONIFIED) != 0)
-    {
+    if (glfwGetWindowAttrib(uiWindow, GLFW_ICONIFIED) != 0) {
         ImGui_ImplGlfw_Sleep(10);
         return;
     }
@@ -99,10 +102,44 @@ void SimpleTextProjectorUI::draw() {
     ImGui::SetCursorPosX(qrCodePX);
     ImGui::Text("%s", qrCodeP.c_str());
 
+    ImVec2 availableSpace = ImGui::GetContentRegionAvail();
+
+    float qrXOffset = (availableSpace.x - 256) * 0.5f;
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + qrXOffset);
+
+    ImGui::Image(qrTexture, ImVec2(256,256));
+
+
+    ImGui::NewLine();
+    std::string checkBoxText = "Don't show this window on startup anymore ";
+    ImVec2 checkBoxTextSize = ImGui::CalcTextSize(checkBoxText.c_str());
+    float checkBoxTextX = (windowWidth - checkBoxTextSize.x) * 0.5;
+    ImGui::SetCursorPosX(checkBoxTextX);
+    ImGui::Text(checkBoxText.c_str());
+    ImGui::SameLine();
+    ImGui::Checkbox("##", checkBoxTicked);
 
     ImGui::PopFont();
 
+    ImGui::PushFont(buttonFont);
 
+    float buttonHeight = 30.0f;
+    float spacing = 10.0f;
+    float availableHeight = ImGui::GetContentRegionAvail().y;
+
+    // Move cursor to bottom area for button placement
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + availableHeight - buttonHeight - spacing);
+
+    // Center the button horizontally
+    float buttonWidth = 100.0f; // Adjust as needed
+    float buttonX = (windowWidth - buttonWidth) * 0.5f;
+    ImGui::SetCursorPosX(buttonX);
+
+    if (ImGui::Button("Close", ImVec2(buttonWidth, buttonHeight))) {
+        *shouldCloseUI = true;
+    }
+
+    ImGui::PopFont();
     ImGui::End();
 
     // Rendering
@@ -114,4 +151,44 @@ void SimpleTextProjectorUI::draw() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+}
+
+
+GLuint SimpleTextProjectorUI::generateQrTexture(const char* text, int scale) {
+    GLuint qrTexture = 0;
+    QrCode qr = QrCode::encodeText(text, QrCode::Ecc::MEDIUM);
+    int size = qr.getSize();
+    int imgSize = size * scale;
+
+    // Create RGBA image (White background, Black QR)
+    std::vector<uint8_t> image(imgSize * imgSize * 4, 255); // White background
+
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            bool black = qr.getModule(x, y);
+            for (int dy = 0; dy < scale; dy++) {
+                for (int dx = 0; dx < scale; dx++) {
+                    int px = (y * scale + dy) * imgSize + (x * scale + dx);
+                    int index = px * 4;
+                    if (black) {
+                        image[index] = image[index + 1] = image[index + 2] = 0; // Black
+                    }
+                    image[index + 3] = 255; // Alpha
+                }
+            }
+        }
+    }
+
+    // Upload to OpenGL texture
+    if (qrTexture) {
+        glDeleteTextures(1, &qrTexture);
+    }
+    glGenTextures(1, &qrTexture);
+    glBindTexture(GL_TEXTURE_2D, qrTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imgSize, imgSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return qrTexture;
 }

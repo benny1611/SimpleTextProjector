@@ -18,6 +18,8 @@
 #include "Poco/Message.h"
 #include "Poco/TaskManager.h"
 #include "TextBoxRenderer.h"
+#include "Poco/Exception.h"
+#include "Poco/Net/NetworkInterface.h"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
@@ -60,6 +62,7 @@ GLFWwindow* window;
 
 void monitor_callback(GLFWmonitor* monitor, int event);
 void setMonitorJSON();
+void createUIWindow(GLFWwindow*& uiWindow, GLFWmonitor* primaryMonitor, SimpleTextProjectorUI*& ui, std::string url, bool& shouldCloseUI, bool& isCheckBoxTicked);
 static void glfw_error_callback(int error, const char* description);
 
 int main(int argc, char** argv) {
@@ -77,8 +80,9 @@ int main(int argc, char** argv) {
     pFCConsole->open();
     Logger& consoleLogger = Logger::create("SimpleTextProjector.Main", pFCConsole, Message::PRIO_INFORMATION);
 
-    AutoPtr<PropertyFileConfiguration> pConf;
-    pConf = new PropertyFileConfiguration("SimpleTextProjector.properties");
+    std::string propertyFilePath = "SimpleTextProjector.properties";
+
+    AutoPtr<PropertyFileConfiguration> pConf = new PropertyFileConfiguration(propertyFilePath);
     bool useHTTP = pConf->getBool("HTTP", true);
     bool useHTTPS = pConf->getBool("HTTPS", false);
 
@@ -86,22 +90,82 @@ int main(int argc, char** argv) {
         consoleLogger.error("HTTP and HTTPS must be different!!");
         exit(1);
     }
-    
+
+    std::string url = "";
+    try {
+        url = pConf->getString("hostname");
+    } catch (Poco::NotFoundException e) {
+        // Ignore
+    }
+
+    if (url.empty()) {
+        Poco::Net::NetworkInterface::Map interfaces = Poco::Net::NetworkInterface::map();
+        for (const auto& entry : interfaces) {
+            const Poco::Net::NetworkInterface& netInterface = entry.second;
+            if (netInterface.supportsIPv4() && !netInterface.isLoopback() && netInterface.isRunning()) {
+                std::string portKey;
+                if (useHTTP) {
+                    url = "http://" + netInterface.address().toString();
+                    portKey = "HTTPCommandServer.port";
+                }
+                else {
+                    url = "https://" + netInterface.address().toString();
+                    portKey = "HTTPSCommandServer.port";
+                }
+                int port = -1;
+                try {
+                    port = pConf->getInt(portKey);
+                }
+                catch (Poco::NotFoundException) {
+                    // ignore
+                }
+                if (port > 0) {
+                    if (port != 80 && useHTTP) {
+                        url += ":80";
+                    }
+                }
+            }
+        }
+    }
+
+    std::string portKey;
+    if (useHTTP) {
+        portKey = "HTTPCommandServer.port";
+    }
+    else {
+        portKey = "HTTPSCommandServer.port";
+    }
+    int port = -1;
+    try {
+        port = pConf->getInt(portKey);
+    }
+    catch (Poco::NotFoundException) {
+        // ignore
+    }
+    if (port > 0) {
+        if ((port != 80 && useHTTP) || (port != 443 && useHTTPS) ) {
+            url += ":" + std::to_string(port);
+        }
+    }
+
+
     HTTPCommandServer* HTTPServer = NULL;
     HTTPSCommandServer* HTTPSServer = NULL;
     // Setting up the HTTP/S Server
     if (useHTTP) {
         // start HTTP Server
-        HTTPServer = new HTTPCommandServer();
+        HTTPServer = new HTTPCommandServer(url);
         HTTPServerTask* httpTask = new HTTPServerTask(HTTPServer, argc, argv);
         taskManager->start(httpTask);
     }
     else {
         // start HTTPS Server
-        HTTPSServer = new HTTPSCommandServer();
+        HTTPSServer = new HTTPSCommandServer(url);
         HTTPSServerTask* httpsTask = new HTTPSServerTask(HTTPSServer, argc, argv);
         taskManager->start(httpsTask);
     }
+
+
 
     glfwSetErrorCallback(glfw_error_callback);
 
@@ -166,57 +230,18 @@ int main(int argc, char** argv) {
     std::pair<int, TextBoxRenderer*> rendererPair(1, renderer);
     renderers.insert(rendererPair);
 
+    bool showGreetingWindow = pConf->getBool("ShowGreetingWindow", true);
 
     // UI window
+    bool shouldCloseUI = false;
+    bool isCheckBoxTicked = false;
+    GLFWwindow* uiWindow = nullptr;
+    SimpleTextProjectorUI* ui = nullptr;
 
-    GLFWwindow* uiWindow = glfwCreateWindow(1280, 720, "Simple Text Projector", nullptr, nullptr);
-
-    glfwMakeContextCurrent(uiWindow);
-
-    GLFWmonitor* uiMonitor = primary;
-
-    for (int i = 0; i < monitorInfo.monitorCount; i++) {
-        if (primary != monitors[i]) {
-            uiMonitor = monitors[i];
-            break;
-        }
+    if (showGreetingWindow) {
+        createUIWindow(uiWindow, primary, ui, url, shouldCloseUI, isCheckBoxTicked);
     }
 
-    int uiWindowX, uiWindowY;
-    glfwGetMonitorPos(uiMonitor, &uiWindowX, &uiWindowY);
-    const GLFWvidmode* uiMonitorMode = glfwGetVideoMode(uiMonitor);
-    int uiWindowWidth, uiWindowHeight;
-    glfwGetWindowSize(uiWindow, &uiWindowWidth, &uiWindowHeight);
-
-    uiWindowX = uiWindowX + (uiMonitorMode->width / 2) - (uiWindowWidth / 2);
-    uiWindowY = uiWindowY + (uiMonitorMode->height / 2) - (uiWindowHeight / 2);
-
-    glfwSetWindowPos(uiWindow, uiWindowX, uiWindowY);
-
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); 
-    (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForOpenGL(uiWindow, true);
-    ImGui_ImplOpenGL2_Init();
-
-    // Load Fonts
-    io.Fonts->AddFontDefault();
-    ImFont* titleFont = io.Fonts->AddFontFromFileTTF("./fonts/Raleway.ttf", 32.0f);
-    ImFont* paragraphFont = io.Fonts->AddFontFromFileTTF("./fonts/Raleway.ttf", 24.0f);
-    io.Fonts->Build();
-
-    ImGui_ImplOpenGL2_CreateFontsTexture();
-
-    SimpleTextProjectorUI* ui = new SimpleTextProjectorUI(uiWindow, titleFont, paragraphFont, "http://localhost");
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -245,26 +270,41 @@ int main(int argc, char** argv) {
         glfwSwapBuffers(window);
         glfwPollEvents();
 
+        if (showGreetingWindow) {
+            glDisable(GL_CULL_FACE);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        glDisable(GL_CULL_FACE);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            ui->draw();
 
-        ui->draw();
-
-        glfwMakeContextCurrent(uiWindow);
-        glfwSwapBuffers(uiWindow);
-
+            glfwMakeContextCurrent(uiWindow);
+            glfwSwapBuffers(uiWindow);
+            if (shouldCloseUI) {
+                showGreetingWindow = false;
+                delete ui;
+                glfwDestroyWindow(uiWindow);
+                if (isCheckBoxTicked) {
+                    pConf->setBool("ShowGreetingWindow", false);
+                    pConf->save(propertyFilePath);
+                }
+            }
+        }
     }
 
-    delete ui;
+    if (showGreetingWindow) {
+        delete ui;
+    }
 
     ImGui_ImplOpenGL2_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
     glfwDestroyWindow(window);
-    glfwDestroyWindow(uiWindow);
+
+    if (showGreetingWindow) {
+        glfwDestroyWindow(uiWindow);
+    }
+    
     glfwTerminate();
     
     if (useHTTP) {
@@ -359,4 +399,56 @@ void setMonitorJSON() {
 
 static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
+void createUIWindow(GLFWwindow*& uiWindow, GLFWmonitor* primaryMonitor, SimpleTextProjectorUI*& ui, std::string url, bool& shouldCloseUI, bool& isCheckBoxTicked) {
+    uiWindow = glfwCreateWindow(1280, 720, "Simple Text Projector", nullptr, nullptr);
+
+    glfwMakeContextCurrent(uiWindow);
+
+    GLFWmonitor* uiMonitor = primaryMonitor;
+
+    for (int i = 0; i < monitorInfo.monitorCount; i++) {
+        if (primaryMonitor != monitors[i]) {
+            uiMonitor = monitors[i];
+            break;
+        }
+    }
+
+    int uiWindowX, uiWindowY;
+    glfwGetMonitorPos(uiMonitor, &uiWindowX, &uiWindowY);
+    const GLFWvidmode* uiMonitorMode = glfwGetVideoMode(uiMonitor);
+    int uiWindowWidth, uiWindowHeight;
+    glfwGetWindowSize(uiWindow, &uiWindowWidth, &uiWindowHeight);
+
+    uiWindowX = uiWindowX + (uiMonitorMode->width / 2) - (uiWindowWidth / 2);
+    uiWindowY = uiWindowY + (uiMonitorMode->height / 2) - (uiWindowHeight / 2);
+
+    glfwSetWindowPos(uiWindow, uiWindowX, uiWindowY);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(uiWindow, true);
+    ImGui_ImplOpenGL2_Init();
+
+    // Load Fonts
+    io.Fonts->AddFontDefault();
+    ImFont* titleFont = io.Fonts->AddFontFromFileTTF("./fonts/Raleway.ttf", 32.0f);
+    ImFont* paragraphFont = io.Fonts->AddFontFromFileTTF("./fonts/Raleway.ttf", 24.0f);
+    ImFont* buttonFont = io.Fonts->AddFontFromFileTTF("./fonts/Raleway.ttf", 16.0f);
+    io.Fonts->Build();
+
+    ImGui_ImplOpenGL2_CreateFontsTexture();
+
+    ui = new SimpleTextProjectorUI(uiWindow, titleFont, paragraphFont, buttonFont, url, &shouldCloseUI, &isCheckBoxTicked);
 }

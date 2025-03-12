@@ -21,7 +21,7 @@ using Poco::Net::HTTPResponse;
 
 class HTTPCommandServer : public Poco::Util::ServerApplication {
 public:
-	HTTPCommandServer();
+	HTTPCommandServer(std::string url);
 	~HTTPCommandServer();
 	void stop();
 protected:
@@ -31,31 +31,35 @@ protected:
 	void handleOption(const std::string& name, const std::string& value);
 	int main(const std::vector<std::string>& args);
 private:
+	std::string url;
 	HTTPServer* srv;
 	HandlerList* handlers;
 };
 
 class HTTPCommandRequestHandler : public HTTPRequestHandler {
+public:
+	HTTPCommandRequestHandler(std::string url) : url(url) {};
 	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) {
-		handleAuth(request, response);
+		handleAuth(request, response, url);
 	}
+private:
+	std::string url;
 };
 
 class HTTPCommandRequestHandlerFactory : public HTTPRequestHandlerFactory {
 public:
-	HTTPCommandRequestHandlerFactory(HandlerList* handlers) {
-		this->handlers = handlers;
-	}
+	HTTPCommandRequestHandlerFactory(HandlerList* handlers, std::string url) : handlers(handlers), url(url) {}
 	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) {
 		if (request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0) {
 			return new WebSocketRequestHandler(handlers);
 		}
 		else {
-			return new HTTPCommandRequestHandler();
+			return new HTTPCommandRequestHandler(url);
 		}
 	}
 private:
 	HandlerList* handlers;
+	std::string url;
 };
 
 class HTTPServerTask : public Poco::Task {

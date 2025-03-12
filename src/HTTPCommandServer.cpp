@@ -7,7 +7,7 @@ using Poco::Net::ServerSocket;
 using Poco::Net::HTTPServer;
 using Poco::Net::HTTPServerParams;
 
-HTTPCommandServer::HTTPCommandServer() {
+HTTPCommandServer::HTTPCommandServer(std::string url) : url(url) {
 	initialize(*this);
 	Application& app = Application::instance();
 	handlers = new HandlerList(&app.logger());
@@ -40,7 +40,7 @@ int HTTPCommandServer::main(const std::vector<std::string>& args) {
 	// set-up a server socket
 	ServerSocket svs(port);
 	// set-up a HTTPServer instance
-	srv = new HTTPServer(new HTTPCommandRequestHandlerFactory(handlers), svs, new HTTPServerParams);
+	srv = new HTTPServer(new HTTPCommandRequestHandlerFactory(handlers, url), svs, new HTTPServerParams);
 	// start the HTTPServer
 	srv->start();
 	// wait for CTRL-C or kill

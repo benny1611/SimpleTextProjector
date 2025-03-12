@@ -31,7 +31,7 @@ using Poco::Util::OptionSet;
 
 class HTTPSCommandServer : public Poco::Util::ServerApplication {
 public:
-	HTTPSCommandServer();
+	HTTPSCommandServer(std::string url);
 	~HTTPSCommandServer();
 	void stop();
 protected:
@@ -41,6 +41,7 @@ protected:
 	void handleOption(const std::string& name, const std::string& value);
 	int main(const std::vector<std::string>& args);
 private:
+	std::string url;
 	HTTPServer* srv;
 	HandlerList* handlers;
 };
@@ -48,29 +49,30 @@ private:
 
 class HTTPSCommandRequestHandler : public HTTPRequestHandler {
 public:
-	HTTPSCommandRequestHandler() {}
+	HTTPSCommandRequestHandler(std::string url) : url(url) {};
 
 	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) {
-		handleAuth(request, response);
+		handleAuth(request, response, url);
 	}
+private:
+	std::string url;
 };
 
 class HTTPSCommandRequestHandlerFactory : public HTTPRequestHandlerFactory {
 public:
-	HTTPSCommandRequestHandlerFactory(HandlerList* handlers) {
-		this->handlers = handlers;
-	}
+	HTTPSCommandRequestHandlerFactory(HandlerList* handlers, std::string url) : handlers(handlers), url(url) {}
 	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) {
 		
 		if (request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0) {
 			return new WebSocketRequestHandler(handlers);
 		} else {
-			return new HTTPSCommandRequestHandler();
+			return new HTTPSCommandRequestHandler(url);
 		}
 		//if (request.getURI() == "/") {
 	}
 private:
 	HandlerList* handlers;
+	std::string url;
 };
 
 class HTTPSServerTask : public Poco::Task {

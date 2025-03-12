@@ -10,5 +10,5 @@ using Poco::Net::HTTPServerRequest;
 using Poco::Net::HTTPServerResponse;
 
 
-void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response);
+void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response, std::string url);
 void handleCommand(std::string jsonCommand, WebSocket ws, HandlerList* handlers);

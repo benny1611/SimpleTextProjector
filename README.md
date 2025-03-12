@@ -89,6 +89,9 @@ This software uses libraries from the FFmpeg project under the LGPLv2.1. I do *N
 - [libdatachannel](https://github.com/paullouisageneau/libdatachannel)
 - [utfcpp](https://github.com/nemtrif/utfcpp)
 - [glm](https://github.com/g-truc/glm)
+- [QR-Code-generator](https://github.com/nayuki/QR-Code-generator/tree/master)
+- [stb](https://github.com/nothings/stb/tree/master)
+- [Dear ImGui](https://github.com/ocornut/imgui)
 
 ## License
 

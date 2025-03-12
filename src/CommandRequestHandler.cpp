@@ -21,7 +21,7 @@ using Poco::Dynamic::Var;
 using Poco::Exception;
 
 
-void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
+void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response, std::string url) {
 	Application& app = Application::instance();
 	app.logger().information("Request from: " + request.clientAddress().toString());
 
@@ -67,7 +67,7 @@ void handleAuth(HTTPServerRequest& request, HTTPServerResponse& response) {
 		else {
 			response.setStatus(HTTPResponse::HTTP_NOT_FOUND);
 			std::ostream& ostr = response.send();
-			ostr << "Could not find the requested page, go to localhost/live to see the live stream";
+			ostr << "Could not find the requested page, go to " << url << "/live to see the live stream";
 		}
 		
 	} else {

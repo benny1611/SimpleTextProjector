@@ -1,8 +1,6 @@
 #include "HTTPSCommandServer.h"
 
-void runServer(void* arg);
-
-HTTPSCommandServer::HTTPSCommandServer() {
+HTTPSCommandServer::HTTPSCommandServer(std::string url) : url(url) {
 	Poco::Net::initializeSSL();
 	initialize(*this);
 	Application& app = Application::instance();
@@ -40,7 +38,7 @@ int HTTPSCommandServer::main(const std::vector<std::string>& args) {
 	// set-up a server socket
 	SecureServerSocket svs(port);
 	// set-up a HTTPServer instance
-	srv = new HTTPServer(new HTTPSCommandRequestHandlerFactory(handlers), svs, new HTTPServerParams);
+	srv = new HTTPServer(new HTTPSCommandRequestHandlerFactory(handlers, url), svs, new HTTPServerParams);
 	// start the HTTPServer
 	srv->start();
 	// wait for CTRL-C or kill
