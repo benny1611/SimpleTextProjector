@@ -55,6 +55,7 @@ MonitorInfo monitorInfo;
 // Other variables for main
 float defaultWidth = 800;
 float defaultHeight = 450;
+bool shouldCloseUI = false;
 
 GLFWmonitor** monitors;
 GLFWmonitor* currentWindowMonitor;
@@ -63,6 +64,7 @@ GLFWwindow* window;
 void monitor_callback(GLFWmonitor* monitor, int event);
 void setMonitorJSON();
 void createUIWindow(GLFWwindow*& uiWindow, GLFWmonitor* primaryMonitor, SimpleTextProjectorUI*& ui, std::string url, bool& shouldCloseUI, bool& isCheckBoxTicked);
+void uiWindowCloseCallback(GLFWwindow* uiWindow);
 static void glfw_error_callback(int error, const char* description);
 
 int main(int argc, char** argv) {
@@ -148,7 +150,6 @@ int main(int argc, char** argv) {
         }
     }
 
-
     HTTPCommandServer* HTTPServer = NULL;
     HTTPSCommandServer* HTTPSServer = NULL;
     // Setting up the HTTP/S Server
@@ -164,8 +165,6 @@ int main(int argc, char** argv) {
         HTTPSServerTask* httpsTask = new HTTPSServerTask(HTTPSServer, argc, argv);
         taskManager->start(httpsTask);
     }
-
-
 
     glfwSetErrorCallback(glfw_error_callback);
 
@@ -233,7 +232,6 @@ int main(int argc, char** argv) {
     bool showGreetingWindow = pConf->getBool("ShowGreetingWindow", true);
 
     // UI window
-    bool shouldCloseUI = false;
     bool isCheckBoxTicked = false;
     GLFWwindow* uiWindow = nullptr;
     SimpleTextProjectorUI* ui = nullptr;
@@ -241,7 +239,6 @@ int main(int argc, char** argv) {
     if (showGreetingWindow) {
         createUIWindow(uiWindow, primary, ui, url, shouldCloseUI, isCheckBoxTicked);
     }
-
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -404,6 +401,8 @@ static void glfw_error_callback(int error, const char* description) {
 void createUIWindow(GLFWwindow*& uiWindow, GLFWmonitor* primaryMonitor, SimpleTextProjectorUI*& ui, std::string url, bool& shouldCloseUI, bool& isCheckBoxTicked) {
     uiWindow = glfwCreateWindow(1280, 720, "Simple Text Projector", nullptr, nullptr);
 
+    glfwSetWindowCloseCallback(uiWindow, uiWindowCloseCallback);
+
     glfwMakeContextCurrent(uiWindow);
 
     GLFWmonitor* uiMonitor = primaryMonitor;
@@ -451,4 +450,9 @@ void createUIWindow(GLFWwindow*& uiWindow, GLFWmonitor* primaryMonitor, SimpleTe
     ImGui_ImplOpenGL2_CreateFontsTexture();
 
     ui = new SimpleTextProjectorUI(uiWindow, titleFont, paragraphFont, buttonFont, url, &shouldCloseUI, &isCheckBoxTicked);
+}
+
+void uiWindowCloseCallback(GLFWwindow* uiWindow) {
+    shouldCloseUI = true;
+
 }
