@@ -6,8 +6,7 @@
 #include "HTTPSCommandServer.h"
 #include "HTTPCommandServer.h"
 #include "Poco/ErrorHandler.h"
-#include "Poco/AutoPtr.h"
-#include "Poco/Util/PropertyFileConfiguration.h"
+
 #include "Poco/Logger.h"
 #include "Poco/PatternFormatter.h"
 #include "Poco/FormattingChannel.h"
@@ -20,7 +19,6 @@
 #include "TextBoxRenderer.h"
 #include "Poco/Exception.h"
 #include "Poco/Net/NetworkInterface.h"
-
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl2.h"
@@ -28,8 +26,6 @@
 #include "SimpleTextProjectorUI.h"
 
 using Poco::ErrorHandler;
-using Poco::AutoPtr;
-using Poco::Util::PropertyFileConfiguration;
 using Poco::Logger;
 using Poco::PatternFormatter;
 using Poco::FormattingChannel;
@@ -50,6 +46,7 @@ float backgroundColorG = 0.0f;
 float backgroundColorB = 0.0f;
 float backgroundColorA = 0.0f;
 MonitorInfo monitorInfo;
+AutoPtr<PropertyFileConfiguration> pConf;
 
 
 // Other variables for main
@@ -84,7 +81,7 @@ int main(int argc, char** argv) {
 
     std::string propertyFilePath = "SimpleTextProjector.properties";
 
-    AutoPtr<PropertyFileConfiguration> pConf = new PropertyFileConfiguration(propertyFilePath);
+    pConf = new PropertyFileConfiguration(propertyFilePath);
     bool useHTTP = pConf->getBool("HTTP", true);
     bool useHTTPS = pConf->getBool("HTTPS", false);
 
@@ -105,26 +102,11 @@ int main(int argc, char** argv) {
         for (const auto& entry : interfaces) {
             const Poco::Net::NetworkInterface& netInterface = entry.second;
             if (netInterface.supportsIPv4() && !netInterface.isLoopback() && netInterface.isRunning()) {
-                std::string portKey;
                 if (useHTTP) {
                     url = "http://" + netInterface.address().toString();
-                    portKey = "HTTPCommandServer.port";
                 }
                 else {
                     url = "https://" + netInterface.address().toString();
-                    portKey = "HTTPSCommandServer.port";
-                }
-                int port = -1;
-                try {
-                    port = pConf->getInt(portKey);
-                }
-                catch (Poco::NotFoundException) {
-                    // ignore
-                }
-                if (port > 0) {
-                    if (port != 80 && useHTTP) {
-                        url += ":80";
-                    }
                 }
             }
         }

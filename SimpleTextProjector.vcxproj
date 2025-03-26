@@ -124,7 +124,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>datachannel.lib;libcrypto.lib;libssl.lib;avcodec.lib;avformat.lib;avutil.lib;avdevice.lib;swscale.lib;opengl32.lib;glfw3.lib;PocoCryptod.lib;PocoFoundationd.lib;PocoJSONd.lib;PocoNetd.lib;PocoNetSSLWind.lib;PocoUtild.lib;PocoXMLd.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>datachannel.lib;libcrypto.lib;libssl.lib;avcodec.lib;avformat.lib;avutil.lib;avdevice.lib;swscale.lib;opengl32.lib;glfw3.lib;PocoCryptod.lib;PocoFoundationd.lib;PocoJSONd.lib;PocoNetd.lib;PocoNetSSLWind.lib;PocoUtild.lib;PocoXMLd.lib;PocoDatad.lib;PocoDataSQLited.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)Libraries\lib;$(ProjectDir)Libraries\include\KHR;$(ProjectDir)Libraries\lib\rtc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -144,7 +144,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>datachannel.lib;libcrypto.lib;libssl.lib;avcodec.lib;avformat.lib;avutil.lib;avdevice.lib;swscale.lib;opengl32.lib;glfw3.lib;PocoCrypto.lib;PocoFoundation.lib;PocoJSON.lib;PocoNet.lib;PocoNetSSLWin.lib;PocoUtil.lib;PocoXML.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>datachannel.lib;libcrypto.lib;libssl.lib;avcodec.lib;avformat.lib;avutil.lib;avdevice.lib;swscale.lib;opengl32.lib;glfw3.lib;PocoCrypto.lib;PocoFoundation.lib;PocoJSON.lib;PocoNet.lib;PocoNetSSLWin.lib;PocoUtil.lib;PocoXML.lib;PocoData.lib;PocoDataSQLite.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)Libraries\lib;$(ProjectDir)Libraries\include\KHR;$(ProjectDir)Libraries\lib\rtc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

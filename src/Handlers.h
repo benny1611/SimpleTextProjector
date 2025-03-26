@@ -2,8 +2,20 @@
 #include "SharedVariables.h"
 #include "Poco/Base64Decoder.h"
 #include "Poco/JSON/Stringifier.h"
+#include "Poco/Data/Session.h"
+#include "Poco/Data/SQLite/Connector.h"
+#include "Poco/PBKDF2Engine.h"
+#include "Poco/Random.h"
+#include "Poco/Base64Encoder.h"
+#include "Poco/Crypto/DigestEngine.h"
+#include "Poco/UUIDGenerator.h"
+#include "Poco/DateTime.h"
 
 using Poco::Base64Decoder;
+using Poco::Base64Encoder;
+using Poco::Data::Session;
+using Poco::Data::Statement;
+using namespace Poco::Data::Keywords;
 
 std::string getErrorMessageJSONAsString(std::string message) {
 	Poco::JSON::Object::Ptr newMonitorJSON = new Poco::JSON::Object;
@@ -261,4 +273,190 @@ void handleMonitor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) 
 	}
 
 	monitorInfo.monitorMutex.unlock();
+}
+
+Session* sqliteSession;
+
+struct User {
+	std::string username;
+	std::string passwordHash;
+	std::string passwordSalt;
+	bool isAdmin;
+};
+
+Session* getSession() {
+	static bool connectorRegistered = false;
+	if (!connectorRegistered) {
+
+		Poco::Data::SQLite::Connector::registerConnector();
+		connectorRegistered = true;
+
+		sqliteSession = new Poco::Data::Session("SQLite", "users.db");
+
+		*sqliteSession << "CREATE TABLE IF NOT EXISTS User ("
+			"Username TEXT PRIMARY KEY, "
+			"PasswordHash TEXT NOT NULL, "
+			"PasswordSalt TEXT NOT NULL, "
+			"IsAdmin BOOLEAN NOT NULL CHECK (IsAdmin IN (0, 1)))",
+			now;
+	}
+
+	return sqliteSession;
+}
+
+std::list<User> userCache;
+
+User getUser(std::string username, std::string& error) {
+
+	std::list<User>::iterator it;
+	for (it = userCache.begin(); it != userCache.end(); ++it) {
+		if (it->username == username) {
+			return *it;
+		}
+	}
+
+	User usr;
+	usr.username = "";
+	usr.passwordHash = "";
+	usr.passwordSalt = "";
+	usr.isAdmin = false;
+
+	try {
+		Session session = *getSession();
+
+		Statement select(session);
+
+		select << "SELECT Username, PasswordHash, PasswordSalt, IsAdmin FROM User WHERE Username = ? LIMIT 1", use(username), into(usr.username), into(usr.passwordHash), into(usr.passwordSalt), into(usr.isAdmin);
+		select.execute();
+
+		if (!usr.username.empty() && !usr.passwordHash.empty() && !usr.passwordSalt.empty()) {
+			userCache.push_back(usr);
+		}
+	}
+	catch (const Poco::Exception& ex) {
+		error = "SQL Error: " + ex.displayText();
+	}
+
+	return usr;
+}
+
+std::string generateSalt(int length = 16) {
+	Poco::Random rng;
+	rng.seed(); // Seed the random generator
+
+	std::string salt;
+	for (int i = 0; i < length; ++i) {
+		salt += static_cast<char>(rng.next(256)); // Random bytes
+	}
+
+	// Encode in Base64 for storage
+	std::ostringstream encoded;
+	Base64Encoder encoder(encoded);
+	encoder.write(salt.data(), salt.size());
+	encoder.close();
+	return encoded.str();
+}
+
+
+std::string hashPassword(const std::string& password, const std::string& salt) {
+	Poco::Crypto::DigestEngine sha256Engine("SHA256");
+	std::string saltedPassword = salt + password;
+	std::vector<unsigned char> digestBytes = std::vector<unsigned char>(saltedPassword.begin(), saltedPassword.end());
+	return sha256Engine.digestToHex(digestBytes, digestBytes.size());
+}
+
+std::map<std::string, std::pair<Poco::UUID, Poco::DateTime>> sessionTokens;
+
+void handleAuthentication(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
+	Object::Ptr authObj = jsonObject->get("authenticate").extract<Object::Ptr>();
+	if (authObj->has("user") && authObj->has("password")) {
+		std::string user = authObj->getValue<std::string>("user");
+		std::string password = authObj->getValue<std::string>("password");
+
+		if (!user.empty() && user.size() <= 255 && !password.empty() && password.size() <= 255) {
+
+			std::string error = "";
+
+			User usr = getUser(user, error);
+
+			if (usr.username.empty() || usr.passwordHash.empty() || usr.passwordSalt.empty()) {
+				std::string message = "ERROR: Could not find user";
+				if (!error.empty()) {
+					message += "; " + error;
+				}
+				std::string errorMessage = getErrorMessageJSONAsString(message);
+				ws.sendFrame(errorMessage.c_str(), errorMessage.length());
+			}
+			else {
+				std::string computedPasswordHash = hashPassword(password, usr.passwordSalt);
+				if (computedPasswordHash == usr.passwordHash) {
+
+					Poco::UUIDGenerator generator;
+					Poco::UUID sessionToken = generator.create();
+					Poco::DateTime now;
+
+					std::pair<Poco::UUID, Poco::DateTime> sessionTokenTimePair;
+					sessionTokenTimePair.first = sessionToken;
+					sessionTokenTimePair.second = now;
+					
+					sessionTokens.insert({ usr.username, sessionTokenTimePair });
+					
+					std::string successMessage = "{\"message\": \"Succesfully logged in\", \"session_token\": \"" + sessionToken.toString() + "\"}";
+					ws.sendFrame(successMessage.c_str(), successMessage.length());
+				}
+				else {
+					std::string errorMessage = getErrorMessageJSONAsString("ERROR: wrong password");
+					ws.sendFrame(errorMessage.c_str(), errorMessage.length());
+				}
+			}
+		}
+		else {
+			std::string errorMessage = getErrorMessageJSONAsString("ERROR: user or password empty or too long");
+			ws.sendFrame(errorMessage.c_str(), errorMessage.length());
+		}
+	}
+	else {
+		std::string errorMessage = getErrorMessageJSONAsString("ERROR: missing either user or password");
+		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
+	}
+}
+
+void handleRegistration(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
+	Object::Ptr registerObj = jsonObject->get("register").extract<Object::Ptr>();
+	if (registerObj->has("user") && registerObj->has("password")) {
+		std::string user = registerObj->getValue<std::string>("user");
+		std::string password = registerObj->getValue<std::string>("password");
+
+		std::string salt = generateSalt();
+		std::string hashedPassword = hashPassword(password, salt);
+
+		try {
+			Session* session = getSession();
+
+			std::string errorUser = "";
+
+			User usr = getUser(user, errorUser);
+
+			if (usr.username.empty() && usr.passwordHash.empty() && usr.passwordSalt.empty()) {
+				Statement insert(*session);
+				insert << "INSERT INTO User(Username, PasswordHash, PasswordSalt, IsAdmin) VALUES(? , ? , ? , 0 )", use(user), use(hashedPassword), use(salt);
+				insert.execute();
+				std::string successMessage = "{\"message\":\"Successfully added user: " + user + "\"}";
+				ws.sendFrame(successMessage.c_str(), successMessage.length());
+			}
+			else {
+				std::string error = getErrorMessageJSONAsString("ERROR: User already exists");
+				ws.sendFrame(error.c_str(), error.length());
+			}
+
+
+		} catch (const Poco::Exception& ex) {
+			std::string error = getErrorMessageJSONAsString("SQL Error: " + ex.displayText());
+			ws.sendFrame(error.c_str(), error.length());
+		}
+
+	} else {
+		std::string errorMessage = getErrorMessageJSONAsString("ERROR: missing either user or password");
+		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
+	}
 }

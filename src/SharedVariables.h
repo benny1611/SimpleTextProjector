@@ -8,12 +8,16 @@
 #include "Poco/Net/WebSocket.h"
 #include "Poco/Mutex.h"
 #include "Poco/TaskManager.h"
+#include "Poco/AutoPtr.h"
+#include "Poco/Util/PropertyFileConfiguration.h"
 #include "ScreenStreamer.h"
 #include "ScreenStreamerTask.h"
 #include "TextBoxRenderer.h"
 
 using Poco::Net::WebSocket;
 using Poco::Mutex;
+using Poco::AutoPtr;
+using Poco::Util::PropertyFileConfiguration;
 
 struct MonitorInfo {
 	int monitorCount;
@@ -36,3 +40,4 @@ extern float backgroundColorG;
 extern float backgroundColorB;
 extern float backgroundColorA;
 extern MonitorInfo monitorInfo;
+extern AutoPtr<PropertyFileConfiguration> pConf;
