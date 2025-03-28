@@ -17,6 +17,21 @@ using Poco::Data::Session;
 using Poco::Data::Statement;
 using namespace Poco::Data::Keywords;
 
+
+Session* sqliteSession;
+
+struct User {
+	std::string username;
+	std::string passwordHash;
+	std::string passwordSalt;
+	WebSocket* ws;
+	bool isAdmin;
+};
+
+std::list<User> userCache;
+std::map<std::string, std::pair<Poco::UUID, Poco::DateTime>> sessionTokens;
+Mutex sessionTokenMutex;
+
 std::string getErrorMessageJSONAsString(std::string message) {
 	Poco::JSON::Object::Ptr newMonitorJSON = new Poco::JSON::Object;
 	newMonitorJSON->set("error", true);
@@ -186,6 +201,68 @@ void handleStream(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	}
 }
 
+void handlePing(Object::Ptr jsonObject, WebSocket& ws, Logger* consoleLogger) {
+	User usr;
+	usr.username = "";
+	usr.passwordHash = "";
+	usr.passwordSalt = "";
+	usr.ws = nullptr;
+
+	WebSocket* tmp = &ws;
+
+	std::list<User>::iterator it;
+	for (it = userCache.begin(); it != userCache.end(); ++it) {
+		if (it->ws == tmp) {
+			usr = *it;
+			break;
+		}
+	}
+
+	if (!usr.username.empty() && !usr.passwordHash.empty() && !usr.passwordSalt.empty()) {
+		sessionTokenMutex.lock();
+		if (sessionTokens.count(usr.username)) {
+			Poco::DateTime now;
+			Poco::DateTime sessionTokenIssueTime;
+			Poco::UUID sessionToken;
+
+			sessionTokenIssueTime = sessionTokens[usr.username].second;
+			sessionToken = sessionTokens[usr.username].first;
+			sessionTokenMutex.unlock();
+
+			int sessionTokenDurationInS = pConf->getInt("SessionTokenDurationS", 43200); // 12 hours default		
+
+			Poco::Timespan timeSpan;
+			timeSpan.assign(sessionTokenDurationInS, 0);
+
+			Poco::DateTime expirityTime = sessionTokenIssueTime + timeSpan;
+
+			if (now <= expirityTime) {
+				Poco::JSON::Object::Ptr pingResponseJSON = new Poco::JSON::Object;
+				pingResponseJSON->set("pong", sessionToken.toString());
+				std::ostringstream oss;
+				Poco::JSON::Stringifier::stringify(*pingResponseJSON, oss);
+				std::string pingResponseString = oss.str();
+				ws.sendFrame(pingResponseString.c_str(), pingResponseString.length());
+				return;
+			}
+		}
+		
+		sessionTokenMutex.unlock();
+
+		sessionTokenMutex.lock();
+		sessionTokens.erase(usr.username);
+		sessionTokenMutex.unlock();
+
+		std::string errorMessage = getErrorMessageJSONAsString("Error: session expired");
+		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
+
+	}
+	else {
+		std::string errorMessage = getErrorMessageJSONAsString("Error: user not logged in");
+		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
+	}
+}
+
 void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	std::string what = jsonObject->getValue<std::string>("get");
 	consoleLogger->information("Getting: " + what);
@@ -207,8 +284,7 @@ void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 
 		ws.sendFrame(isStreamingJSON.c_str(), isStreamingJSON.length());
 	} else if (what == "ping") {
-		std::string pong = "{\"pong\": true}";
-		ws.sendFrame(pong.c_str(), pong.length());
+		handlePing(jsonObject, ws, consoleLogger);
 	} else if (what == "monitors") {
 		monitorInfo.monitorMutex.lock();
 		ws.sendFrame(monitorInfo.monitorJSONAsString.c_str(), monitorInfo.monitorJSONAsString.length());
@@ -275,15 +351,6 @@ void handleMonitor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) 
 	monitorInfo.monitorMutex.unlock();
 }
 
-Session* sqliteSession;
-
-struct User {
-	std::string username;
-	std::string passwordHash;
-	std::string passwordSalt;
-	bool isAdmin;
-};
-
 Session* getSession() {
 	static bool connectorRegistered = false;
 	if (!connectorRegistered) {
@@ -307,9 +374,7 @@ Session* getSession() {
 	return sqliteSession;
 }
 
-std::list<User> userCache;
-
-User getUser(std::string username, std::string& error) {
+User getUser(std::string username, std::string& error, WebSocket& ws) {
 
 	std::list<User>::iterator it;
 	for (it = userCache.begin(); it != userCache.end(); ++it) {
@@ -322,6 +387,7 @@ User getUser(std::string username, std::string& error) {
 	usr.username = "";
 	usr.passwordHash = "";
 	usr.passwordSalt = "";
+	usr.ws = nullptr;
 	usr.isAdmin = false;
 
 	try {
@@ -333,6 +399,7 @@ User getUser(std::string username, std::string& error) {
 		select.execute();
 
 		if (!usr.username.empty() && !usr.passwordHash.empty() && !usr.passwordSalt.empty()) {
+			usr.ws = &ws;
 			userCache.push_back(usr);
 		}
 	}
@@ -368,8 +435,6 @@ std::string hashPassword(const std::string& password, const std::string& salt) {
 	return sha256Engine.digestToHex(digestBytes, digestBytes.size());
 }
 
-std::map<std::string, std::pair<Poco::UUID, Poco::DateTime>> sessionTokens;
-
 void handleAuthentication(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	Object::Ptr authObj = jsonObject->get("authenticate").extract<Object::Ptr>();
 	if (authObj->has("user") && authObj->has("password")) {
@@ -380,7 +445,7 @@ void handleAuthentication(Object::Ptr jsonObject, WebSocket ws, Logger* consoleL
 
 			std::string error = "";
 
-			User usr = getUser(user, error);
+			User usr = getUser(user, error, ws);
 
 			if (!usr.username.empty() && !usr.passwordHash.empty() && !usr.passwordSalt.empty()) {
 
@@ -395,7 +460,9 @@ void handleAuthentication(Object::Ptr jsonObject, WebSocket ws, Logger* consoleL
 					sessionTokenTimePair.first = sessionToken;
 					sessionTokenTimePair.second = now;
 
+					sessionTokenMutex.lock();
 					sessionTokens.insert({ usr.username, sessionTokenTimePair });
+					sessionTokenMutex.unlock();
 
 					std::string successMessage = "{\"message\": \"Succesfully logged in\", \"session_token\": \"" + sessionToken.toString() + "\"}";
 					ws.sendFrame(successMessage.c_str(), successMessage.length());
@@ -441,7 +508,7 @@ void handleRegistration(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLog
 
 				std::string errorUser = "";
 
-				User usr = getUser(user, errorUser);
+				User usr = getUser(user, errorUser, ws);
 
 				if (usr.username.empty() && usr.passwordHash.empty() && usr.passwordSalt.empty()) {
 					Statement insert(*session);
@@ -471,5 +538,6 @@ void handleRegistration(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLog
 		std::string errorMessage = getErrorMessageJSONAsString("ERROR: Registrations are closed");
 		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 	}
-
 }
+
+
