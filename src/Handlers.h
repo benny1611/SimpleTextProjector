@@ -32,20 +32,21 @@ std::list<User> userCache;
 std::map<std::string, std::pair<Poco::UUID, Poco::DateTime>> sessionTokens;
 Mutex sessionTokenMutex;
 
-std::string getErrorMessageJSONAsString(std::string message) {
-	Poco::JSON::Object::Ptr newMonitorJSON = new Poco::JSON::Object;
-	newMonitorJSON->set("error", true);
-	newMonitorJSON->set("message", message);
+std::string getErrorMessageJSONAsString(std::string message, std::string errorType) {
+	Poco::JSON::Object::Ptr erorJSON = new Poco::JSON::Object;
+	erorJSON->set("error", true);
+	erorJSON->set("message", message);
+	erorJSON->set("error_type", errorType);
 
 	std::ostringstream oss;
-	Poco::JSON::Stringifier::stringify(*newMonitorJSON, oss);
+	Poco::JSON::Stringifier::stringify(*erorJSON, oss);
 
 	return oss.str();
 }
 
 bool getColor(Object::Ptr jsonObject, std::string key, WebSocket ws, Logger* consoleLogger, float& R, float& G, float& B, float& A) {
 	std::string error = "";
-	std::string errorMessage = getErrorMessageJSONAsString("Error: the color must be a JSON object in the form : " + key + " : R : <value>, G : <value>, B : <value>, A : <value>, all values are floats between 0.0 and 1.0");
+	std::string errorMessage = getErrorMessageJSONAsString("Error: the color must be a JSON object in the form : " + key + " : R : <value>, G : <value>, B : <value>, A : <value>, all values are floats between 0.0 and 1.0", "color_error");
 	Object::Ptr colorObj = jsonObject->get(key).extract<Object::Ptr>();
 	if (!colorObj->has("R") || !colorObj->has("G") || !colorObj->has("B") || !colorObj->has("A")) {
 		error = errorMessage;
@@ -61,13 +62,13 @@ bool getColor(Object::Ptr jsonObject, std::string key, WebSocket ws, Logger* con
 		A = colorObj->getValue<float>("A");
 	}
 	catch (Exception e) {
-		error = getErrorMessageJSONAsString(e.message());
+		error = getErrorMessageJSONAsString(e.message(), "color_error");
 		ws.sendFrame(error.c_str(), error.length());
 		return false;
 	}
 
 	if (R < 0 || R > 1.0 || G < 0 || G > 1.0 || B < 0 || B > 1.0 || A < 0 || A > 1.0) {
-		error = getErrorMessageJSONAsString("Values R, G, B and A must be a float between 0.0 and 1.0");
+		error = getErrorMessageJSONAsString("Values R, G, B and A must be a float between 0.0 and 1.0", "color_error");
 	}
 
 	if (!error.empty()) {
@@ -85,20 +86,29 @@ void handleText(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	std::istringstream iss(textValue);
 	std::ostringstream oss;
 
-	Base64Decoder decoder(iss);
-	oss << decoder.rdbuf();
+	try {
+		Base64Decoder decoder(iss);
+		oss << decoder.rdbuf();
 
-	std::string decoded = oss.str();
-	// TODO: when the implementation of multiple renderers is done, find the right renderer instead of taking the renderer with the ID = 1
-	TextBoxRenderer* renderer = renderers[1];
+		std::string decoded = oss.str();
+		// TODO: when the implementation of multiple renderers is done, find the right renderer instead of taking the renderer with the ID = 1
+		TextBoxRenderer* renderer = renderers[1];
 
-	textMutex.lock();
-	if (decoded != renderer->getText()) {
-		renderer->setText(decoded);
-
-		consoleLogger->debug("Here's your decoded text: {}", decoded);
+		textMutex.lock();
+		if (decoded != renderer->getText()) {
+			renderer->setText(decoded);
+			consoleLogger->debug("Here's your decoded text: {}", decoded);
+		}
+		textMutex.unlock();
 	}
-	textMutex.unlock();
+	catch (const Poco::InvalidArgumentException& e) {
+		std::string error = getErrorMessageJSONAsString("Invalid Base64 string", "text_error");
+		ws.sendFrame(error.c_str(), error.length());
+	}
+	catch (const std::exception& e) {
+		std::string error = getErrorMessageJSONAsString("Something else happened: " + std::string(e.what()), "text_error");
+		ws.sendFrame(error.c_str(), error.length());
+	}
 }
 
 void handleFontColor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
@@ -126,7 +136,7 @@ void handleFontSize(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger)
 		renderer->setFontSize(fontSizeValue);
 		textMutex.unlock();
 	} else {
-		std::string error = getErrorMessageJSONAsString("Error: could not set font size to: " + std::to_string(fontSizeValue));
+		std::string error = getErrorMessageJSONAsString("Error: could not set font size to: " + std::to_string(fontSizeValue), "font_size_error");
 		ws.sendFrame(error.c_str(), error.length());
 	}
 }
@@ -154,12 +164,12 @@ void handleFont(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 				renderer->setFont(fontFullPath);
 			}
 			else {
-				std::string error = getErrorMessageJSONAsString("Error file " + fontFullPath + " not found");
+				std::string error = getErrorMessageJSONAsString("Error file " + fontFullPath + " not found", "font_error");
 				ws.sendFrame(error.c_str(), error.length());
 			}
 		}
 		catch (Exception e) {
-			std::string error = getErrorMessageJSONAsString(e.message());
+			std::string error = getErrorMessageJSONAsString(e.message(), "font_error");
 			ws.sendFrame(error.c_str(), error.length());
 		}
 	}
@@ -193,9 +203,9 @@ void handleStream(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 
 		std::string error;
 		if (shouldStream) {
-			error = getErrorMessageJSONAsString("Error: could not start the streaming server, probably it's already running");
+			error = getErrorMessageJSONAsString("Error: could not start the streaming server, probably it's already running", "stream_error");
 		} else {
-			error = getErrorMessageJSONAsString("Error: could not stop the streaming server, probably it's already stopped");
+			error = getErrorMessageJSONAsString("Error: could not stop the streaming server, probably it's already stopped", "stream_error");
 		}
 		ws.sendFrame(error.c_str(), error.length());
 	}
@@ -253,12 +263,12 @@ void handlePing(Object::Ptr jsonObject, WebSocket& ws, Logger* consoleLogger) {
 		sessionTokens.erase(usr.username);
 		sessionTokenMutex.unlock();
 
-		std::string errorMessage = getErrorMessageJSONAsString("Error: session expired");
+		std::string errorMessage = getErrorMessageJSONAsString("Error: session expired", "session_error");
 		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 
 	}
 	else {
-		std::string errorMessage = getErrorMessageJSONAsString("Error: user not logged in");
+		std::string errorMessage = getErrorMessageJSONAsString("Error: user not logged in", "session_error");
 		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 	}
 }
@@ -290,7 +300,7 @@ void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 		ws.sendFrame(monitorInfo.monitorJSONAsString.c_str(), monitorInfo.monitorJSONAsString.length());
 		monitorInfo.monitorMutex.unlock();
 	} else {
-		std::string error = getErrorMessageJSONAsString("get command not supported: " + what);
+		std::string error = getErrorMessageJSONAsString("get command not supported: " + what, "get_error");
 		ws.sendFrame(error.c_str(), error.length());
 	}
 	consoleLogger->information("Done getting");
@@ -312,7 +322,7 @@ void handleSet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 			streamingServerMutex.unlock();
 		}
 	} else {
-		std::string error = getErrorMessageJSONAsString("set command not supported: " + what);
+		std::string error = getErrorMessageJSONAsString("set command not supported: " + what, "set_error");
 	}
 	consoleLogger->information("Done setting");
 }
@@ -344,7 +354,7 @@ void handleMonitor(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) 
 		monitorInfo.hasChanged = true;
 	} else if(monitorIndex < 0 || monitorIndex >= monitorInfo.monitorCount) {
 		int monitorMaxIndex = monitorInfo.monitorCount - 1;
-		std::string error = getErrorMessageJSONAsString("Monitor index out of range. Values must be between 0 and " + std::to_string(monitorMaxIndex));
+		std::string error = getErrorMessageJSONAsString("Monitor index out of range. Values must be between 0 and " + std::to_string(monitorMaxIndex), "monitor_error");
 		ws.sendFrame(error.c_str(), error.length());
 	}
 
@@ -468,7 +478,7 @@ void handleAuthentication(Object::Ptr jsonObject, WebSocket ws, Logger* consoleL
 					ws.sendFrame(successMessage.c_str(), successMessage.length());
 				}
 				else {
-					std::string errorMessage = getErrorMessageJSONAsString("ERROR: wrong password");
+					std::string errorMessage = getErrorMessageJSONAsString("ERROR: wrong password", "auth_error");
 					ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 				}
 			} else {
@@ -476,17 +486,17 @@ void handleAuthentication(Object::Ptr jsonObject, WebSocket ws, Logger* consoleL
 				if (!error.empty()) {
 					message += "; " + error;
 				}
-				std::string errorMessage = getErrorMessageJSONAsString(message);
+				std::string errorMessage = getErrorMessageJSONAsString(message, "auth_error");
 				ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 			}
 		}
 		else {
-			std::string errorMessage = getErrorMessageJSONAsString("ERROR: user or password empty or too long");
+			std::string errorMessage = getErrorMessageJSONAsString("ERROR: user or password empty or too long", "auth_error");
 			ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 		}
 	}
 	else {
-		std::string errorMessage = getErrorMessageJSONAsString("ERROR: missing either user or password");
+		std::string errorMessage = getErrorMessageJSONAsString("ERROR: missing either user or password", "auth_error");
 		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 	}
 }
@@ -518,24 +528,24 @@ void handleRegistration(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLog
 					ws.sendFrame(successMessage.c_str(), successMessage.length());
 				}
 				else {
-					std::string error = getErrorMessageJSONAsString("ERROR: User already exists");
+					std::string error = getErrorMessageJSONAsString("ERROR: User already exists", "registration_error");
 					ws.sendFrame(error.c_str(), error.length());
 				}
 
 			}
 			catch (const Poco::Exception& ex) {
-				std::string error = getErrorMessageJSONAsString("SQL Error: " + ex.displayText());
+				std::string error = getErrorMessageJSONAsString("SQL Error: " + ex.displayText(), "registration_error");
 				ws.sendFrame(error.c_str(), error.length());
 			}
 
 		}
 		else {
-			std::string errorMessage = getErrorMessageJSONAsString("ERROR: missing either user or password");
+			std::string errorMessage = getErrorMessageJSONAsString("ERROR: missing either user or password", "registration_error");
 			ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 		}
 	}
 	else {
-		std::string errorMessage = getErrorMessageJSONAsString("ERROR: Registrations are closed");
+		std::string errorMessage = getErrorMessageJSONAsString("ERROR: Registrations are closed", "registration_error");
 		ws.sendFrame(errorMessage.c_str(), errorMessage.length());
 	}
 }
