@@ -20,6 +20,9 @@ using Poco::AutoPtr;
 using Poco::Util::PropertyFileConfiguration;
 
 struct MonitorInfo {
+	int monitorWidth;
+	int monitorHeight;
+	int refreshRate;
 	int monitorCount;
 	int monitorIndex;
 	bool hasChanged;

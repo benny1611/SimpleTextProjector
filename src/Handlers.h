@@ -299,6 +299,22 @@ void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 		monitorInfo.monitorMutex.lock();
 		ws.sendFrame(monitorInfo.monitorJSONAsString.c_str(), monitorInfo.monitorJSONAsString.length());
 		monitorInfo.monitorMutex.unlock();
+	} else if (what == "screen_size") {
+		monitorInfo.monitorMutex.lock();
+
+		Poco::JSON::Object::Ptr screenSizeJSON = new Poco::JSON::Object;
+		screenSizeJSON->set("width", monitorInfo.monitorWidth);
+		screenSizeJSON->set("height", monitorInfo.monitorHeight);
+		screenSizeJSON->set("refresh_rate", monitorInfo.refreshRate);
+
+		std::ostringstream oss;
+		Poco::JSON::Stringifier::stringify(*screenSizeJSON, oss);
+
+		std::string screenSizeJSONAsString = oss.str();
+
+		ws.sendFrame(screenSizeJSONAsString.c_str(), screenSizeJSONAsString.length());
+
+		monitorInfo.monitorMutex.unlock();
 	} else {
 		std::string error = getErrorMessageJSONAsString("get command not supported: " + what, "get_error");
 		ws.sendFrame(error.c_str(), error.length());

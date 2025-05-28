@@ -171,6 +171,9 @@ int main(int argc, char** argv) {
             break;
         }
     }
+    monitorInfo.monitorHeight = primaryMode->height;
+    monitorInfo.monitorWidth = primaryMode->width;
+    monitorInfo.refreshRate = primaryMode->refreshRate;
     monitorInfo.hasChanged = false;
     setMonitorJSON();
     monitorInfo.monitorMutex.unlock();
@@ -233,6 +236,9 @@ int main(int argc, char** argv) {
             const GLFWvidmode* mode = glfwGetVideoMode(monitors[monitorInfo.monitorIndex]);
             glfwSetWindowMonitor(window, monitors[monitorInfo.monitorIndex], 0, 0, mode->width, mode->height, mode->refreshRate);
             monitorInfo.hasChanged = false;
+            monitorInfo.monitorHeight = mode->height;
+            monitorInfo.monitorWidth = mode->width;
+            monitorInfo.refreshRate = mode->refreshRate;
             renderer->setScreenSize(mode->width, mode->height);
             currentWindowMonitor = glfwGetWindowMonitor(window);
         }
@@ -329,6 +335,10 @@ void monitor_callback(GLFWmonitor* monitor, int event) {
                     break;
                 }
             }
+            const GLFWvidmode* primaryMode = glfwGetVideoMode(primary);
+            monitorInfo.monitorHeight = primaryMode->height;
+            monitorInfo.monitorWidth = primaryMode->width;
+            monitorInfo.refreshRate = primaryMode->refreshRate;
             monitorInfo.monitorIndex = primaryIndex;
             monitorInfo.hasChanged = true;
         }
@@ -345,6 +355,10 @@ void monitor_callback(GLFWmonitor* monitor, int event) {
     }
     
     newMonitorJSON->set("monitor_count", monitorInfo.monitorCount);
+
+    newMonitorJSON->set("width", monitorInfo.monitorWidth);
+    newMonitorJSON->set("height", monitorInfo.monitorHeight);
+    newMonitorJSON->set("refresh_rate", monitorInfo.refreshRate);
 
     std::ostringstream oss;
     Poco::JSON::Stringifier::stringify(*newMonitorJSON, oss);
