@@ -1,4 +1,5 @@
 .vs/
 .idea/
+build/
 x64/
 users.db

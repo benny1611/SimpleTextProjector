@@ -64,7 +64,21 @@ void createUIWindow(GLFWwindow*& uiWindow, GLFWmonitor* primaryMonitor, SimpleTe
 void uiWindowCloseCallback(GLFWwindow* uiWindow);
 static void glfw_error_callback(int error, const char* description);
 
+int RealMain(int argc, char** argv);
+
 int main(int argc, char** argv) {
+    try {
+        return RealMain(argc, argv); // or your actual code
+    } catch (const std::exception& ex) {
+        std::cerr << "Uncaught std::exception: " << ex.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown exception caught!" << std::endl;
+    }
+    return 1;
+}
+
+
+int RealMain(int argc, char** argv) {
     FT_Library freeTypeLibrary;
     CustomErrorHandler ceh;
     ErrorHandler::set(&ceh);

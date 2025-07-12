@@ -26,6 +26,7 @@ TextBoxRenderer::TextBoxRenderer(float screenWidth, float screenHeight, float bo
     this->_colorB = colorB;
     this->_colorA = colorA;
     this->_fontPath = fontPath;
+	this->fontFace = nullptr;
 
     loadFontFace(fontPath);
 
@@ -465,7 +466,10 @@ void TextBoxRenderer::loadFontFace(std::string fontPath) {
 
     FT_Set_Pixel_Sizes(fontFace, 0, _desiredFontSize);
 
-    FT_Done_Face(this->fontFace);
+    if (this->fontFace) {
+        FT_Done_Face(this->fontFace);
+    }
+
 
     this->fontFace = fontFace;
 }
