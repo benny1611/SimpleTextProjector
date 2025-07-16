@@ -50,18 +50,20 @@ Here are all the possible commands so far:
   - ```ping``` returns ```{"pong": true}``` just to keep the WebSocket connection alive. It returns the ```session_token``` if the user is logged in or a ```session_error``` if the user is not logged in / token expired.
   - ```monitors``` returns a JSON array with the IDs of the monitors and their names (names are not guaranteed to be unique). Example output: ```{"monitors":[{"0":"Generic PnP Monitor 1920 x 1080 60hz"},{"1":"Generic PnP Monitor 2560 x 1440 59hz"},{"2":"Generic PnP Monitor 1920 x 1080 60hz"}]}```
   - ```get``` command can return an error of type ```get_error``` if the command is not supported.
-- ```set``` set different values for this WebRTC connection - usually used to set the offer. Possible values so far:
-  - ```answer``` - sets the answer for the RTC connection. When ```"set": "answer"``` is present, the ```answer``` key must also be present. Example:
-  ```
-  {
-    "set": "answer",
-	"answer": {
-		"sdp": "v=0\r\no=mozilla...THIS_IS_SDPARTA ... ",
-		"type": "answer"
-	}
-  }
-  ```
-  - ```set``` command can return an error of type ```set_error``` if the set command is not supported.
+  - ```set``` set different values for this WebRTC connection - usually used to set the offer. Possible values so far:
+    - ```answer``` - sets the answer for the RTC connection. When ```"set": "answer"``` is present, the ```answer``` key must also be present. Example:
+    ```
+    {
+      "set": "answer",
+          "answer": {
+          "sdp": "v=0\r\no=mozilla...THIS_IS_SDPARTA ... ",
+          "type": "answer"
+      }
+    }
+    ```
+    - ```box_position``` - sets the box with the given index to the given location. Example: ```{"set": "box_position", "box_position": {"index": 0, "x": 10.5, "y": 20.5}}```
+    - ```box_size``` - sets the size of the box at index ```index``` with the given ```width``` and ```height```. Example ```{"set": "box_size", "box_size": {"index": 0, "height": 22.5, "width": 33.4} }```
+    - ```set``` command can return an error of type ```set_error``` if the set command is not supported.
 - ```background_color``` - ```JSON Object``` This object must define values (between 0.0 and 1.0) for each colors: R (RED), G (GREEN), B(BLUE) and A(ALPHA). Example: ```{"background_color": {"R": 1.0, "G": 0.0, "B": 0.0, "A": 1.0 } }```
   - This command can return an error of type ```color_error``` if the values of either R, G, B or A are not between 0.0 and 1.0.
 - ```monitor``` - ```int``` the index of the monitor, starting with 0 (1 for secondary monitor, 2 for the third and so on).

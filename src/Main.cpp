@@ -223,9 +223,10 @@ int RealMain(int argc, char** argv) {
         consoleLogger.error("FreeType init failed with error code: " + freeTypeError);
         exit(1);
     }
-    TextBoxRenderer* renderer = new TextBoxRenderer(defaultWidth, defaultHeight, defaultWidth / 4, defaultHeight / 4, defaultWidth / 2, defaultHeight / 2, &consoleLogger, freeTypeLibrary);
+    //TextBoxRenderer* renderer = new TextBoxRenderer(defaultWidth, defaultHeight, defaultWidth / 4, defaultHeight / 4, defaultWidth / 2, defaultHeight / 2, &consoleLogger, freeTypeLibrary);
+    TextBoxRenderer* renderer = new TextBoxRenderer(defaultWidth, defaultHeight, 0, 0, defaultWidth / 2, defaultHeight / 2, &consoleLogger, freeTypeLibrary);
     //renderer->setText("Welcome to SimpleTextProjector");
-    std::pair<int, TextBoxRenderer*> rendererPair(1, renderer);
+    std::pair rendererPair(0, renderer);
     renderers.insert(rendererPair);
 
     bool showGreetingWindow = pConf->getBool("ShowGreetingWindow", true);

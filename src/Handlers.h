@@ -33,7 +33,7 @@ std::map<std::string, std::pair<Poco::UUID, Poco::DateTime>> sessionTokens;
 Mutex sessionTokenMutex;
 
 std::string getErrorMessageJSONAsString(std::string message, std::string errorType) {
-	Poco::JSON::Object::Ptr erorJSON = new Poco::JSON::Object;
+	Object::Ptr erorJSON = new Object;
 	erorJSON->set("error", true);
 	erorJSON->set("message", message);
 	erorJSON->set("error_type", errorType);
@@ -302,7 +302,7 @@ void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	} else if (what == "screen_size") {
 		monitorInfo.monitorMutex.lock();
 
-		Poco::JSON::Object::Ptr screenSizeJSON = new Poco::JSON::Object;
+		Object::Ptr screenSizeJSON = new Object;
 		screenSizeJSON->set("width", monitorInfo.monitorWidth);
 		screenSizeJSON->set("height", monitorInfo.monitorHeight);
 		screenSizeJSON->set("refresh_rate", monitorInfo.refreshRate);
@@ -322,7 +322,20 @@ void handleGet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	consoleLogger->information("Done getting");
 }
 
-void handleSet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
+
+inline std::string getConfirmationForSetCommand(std::string key) {
+	Object::Ptr confirmationJSON = new Object;
+	confirmationJSON->set(key, "success");
+
+	std::ostringstream oss;
+	Poco::JSON::Stringifier::stringify(*confirmationJSON, oss);
+
+	std::string confirmationJSONAsString = oss.str();
+
+	return confirmationJSONAsString;
+}
+
+inline void handleSet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 	std::string what = jsonObject->getValue<std::string>("set");
 	consoleLogger->information("Setting: " + what);
 	if (what == "answer") {
@@ -337,8 +350,95 @@ void handleSet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogger) {
 			}
 			streamingServerMutex.unlock();
 		}
+	} else if (what == "box_position") {
+		std::string error;
+		if (jsonObject->has("box_position")) {
+			Object::Ptr boxPositionJSON = jsonObject->get("box_position").extract<Object::Ptr>();
+			if (boxPositionJSON->has("x") && boxPositionJSON->has("y")) {
+				if (boxPositionJSON->has("index")) {
+					try {
+						float x = boxPositionJSON->getValue<float>("x");
+						float y = boxPositionJSON->getValue<float>("y");
+						int index = boxPositionJSON->getValue<int>("index");
+
+						if (x < monitorInfo.monitorWidth && y < monitorInfo.monitorHeight && x > 0 && y > 0) {
+							if (renderers.find(index) != renderers.end()) {
+								textMutex.lock();
+
+								TextBoxRenderer* renderer = renderers.at(index);
+								renderer->setBoxPosition(x, monitorInfo.monitorHeight - y);
+
+								textMutex.unlock();
+
+								std::string confirmation = getConfirmationForSetCommand("box_position");
+								ws.sendFrame(confirmation.c_str(), confirmation.length());
+							} else {
+								error = getErrorMessageJSONAsString("Box index " + std::to_string(index) + " not found", "set_error");
+								ws.sendFrame(error.c_str(), error.length());
+							}
+						} else {
+							error = getErrorMessageJSONAsString("x or y is invalid", "set_error");
+							ws.sendFrame(error.c_str(), error.length());
+						}
+					} catch (Exception e) {
+						error = getErrorMessageJSONAsString(e.message(), "set_error");
+						ws.sendFrame(error.c_str(), error.length());
+					}
+				} else {
+					error = getErrorMessageJSONAsString("To set box_position, you need to specify a box index", "set_error");
+					ws.sendFrame(error.c_str(), error.length());
+				}
+			} else {
+				error = getErrorMessageJSONAsString("box_position needs to have 2 values: x and y", "set_error");
+				ws.sendFrame(error.c_str(), error.length());
+			}
+		} else {
+			error = getErrorMessageJSONAsString("In order to set box position you must give the box_position", "set_error");
+			ws.sendFrame(error.c_str(), error.length());
+		}
+	} else if (what == "box_size") {
+		std::string error;
+		if (jsonObject->has("box_size")) {
+			Object::Ptr boxSizeJSON = jsonObject->get("box_size").extract<Object::Ptr>();
+			if (boxSizeJSON->has("width") && boxSizeJSON->has("height")) {
+				if (boxSizeJSON->has("index")) {
+					try {
+						float width = boxSizeJSON->getValue<float>("width");
+						float height = boxSizeJSON->getValue<float>("height");
+						int index = boxSizeJSON->getValue<int>("index");
+
+						if (width < monitorInfo.monitorWidth && height < monitorInfo.monitorHeight && width > 0 && height > 0) {
+							if (renderers.find(index) != renderers.end()) {
+								textMutex.lock();
+								renderers.at(index)->setBoxSize(width, height);
+								textMutex.unlock();
+
+								std::string confirmation = getConfirmationForSetCommand("box_size");
+								ws.sendFrame(confirmation.c_str(), confirmation.length());
+							} else {
+								error = getErrorMessageJSONAsString("Box index " + std::to_string(index) + " not found", "set_error");
+								ws.sendFrame(error.c_str(), error.length());
+							}
+						} else {
+							error = getErrorMessageJSONAsString("width or height is invalid", "set_error");
+							ws.sendFrame(error.c_str(), error.length());
+						}
+					} catch (Exception e) {
+						error = getErrorMessageJSONAsString(e.message(), "set_error");
+						ws.sendFrame(error.c_str(), error.length());
+					}
+				} else {
+					error = getErrorMessageJSONAsString("To set box size, you need to specify the index", "set_error");
+					ws.sendFrame(error.c_str(), error.length());
+				}
+			} else {
+				error = getErrorMessageJSONAsString("To set box size you need to specify the width and the height", "set_error");
+				ws.sendFrame(error.c_str(), error.length());
+			}
+		}
 	} else {
 		std::string error = getErrorMessageJSONAsString("set command not supported: " + what, "set_error");
+		ws.sendFrame(error.c_str(), error.length());
 	}
 	consoleLogger->information("Done setting");
 }
