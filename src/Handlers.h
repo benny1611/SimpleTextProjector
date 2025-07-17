@@ -361,12 +361,12 @@ inline void handleSet(Object::Ptr jsonObject, WebSocket ws, Logger* consoleLogge
 						float y = boxPositionJSON->getValue<float>("y");
 						int index = boxPositionJSON->getValue<int>("index");
 
-						if (x < monitorInfo.monitorWidth && y < monitorInfo.monitorHeight && x > 0 && y > 0) {
+						if (x < monitorInfo.monitorWidth && y < monitorInfo.monitorHeight && x >= 0 && y >= 0) {
 							if (renderers.find(index) != renderers.end()) {
 								textMutex.lock();
 
 								TextBoxRenderer* renderer = renderers.at(index);
-								renderer->setBoxPosition(x, monitorInfo.monitorHeight - y);
+								renderer->setBoxPosition(x, y);
 
 								textMutex.unlock();
 
